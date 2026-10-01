@@ -261,9 +261,14 @@ a package and naming it in `cmd/umlv`, nothing else.
 | Python | `pyproject.toml`, `setup.py` | a file | Python's `ast`, through `python3` | `python3 -m pytest --cov`, coverage.py JSON |
 
 The TypeScript and Python scanners are scripts carried inside the binary and
-fed to `node` or `python3` directly; they are never written to disk. The
-TypeScript scanner uses the repo's own `typescript`, so a repo without
-`node_modules` needs `npm install` first.
+piped into `node -` or `python3 -` on standard input, so nothing is written
+to disk. The TypeScript scanner also needs TypeScript's compiler library,
+which Node does not include. Rather than look for it in the repo's
+`node_modules` or download it, `umlv` carries a pinned copy (about 1.6 MB
+compressed) and pipes it in ahead of the scanner, inside a small wrapper
+that hands the scanner the loaded library. Any clone can be scanned without
+`npm install`, and every run parses with the same TypeScript version;
+upgrading it means replacing the vendored copy.
 
 ## Look
 
@@ -310,7 +315,7 @@ arrow is 1.5px, the selection border 2px, and a lamp 10px across.
 | `internal/facts` | The shared types: modules, functions, scores, grades, page data | nothing |
 | `internal/lang` | What every language provides (recognise, scan, coverage command, report reader), and the code that runs a scanner script | `facts`, `metrics` |
 | `internal/lang/golang` | The Go scanner, inside the binary; the cover-profile reader | `lang`, `facts`, `metrics` |
-| `internal/lang/typescript` | `tsscan.js`, embedded; the istanbul reader | `lang`, `facts`, `metrics` |
+| `internal/lang/typescript` | `tsscan.js` and a pinned TypeScript compiler, embedded; the istanbul reader | `lang`, `facts`, `metrics` |
 | `internal/lang/python` | `pyscan.py`, embedded; the coverage.py reader | `lang`, `facts`, `metrics` |
 | `internal/metrics` | Coverage units, running a command, CRAP, module stats and grades | `facts` |
 | `internal/policy` | Read, default, write and apply the policy | `facts` |
@@ -339,7 +344,6 @@ would only be incomplete.
 |---|---|
 | The repo's toolchain (`go`, `node`, `python3`) is missing | Stop; name the tool and how to install it |
 | No language recognised | Stop; suggest `--lang` |
-| A TypeScript repo has no `typescript` installed | Stop; suggest `npm install` |
 | A scanner fails | Stop; show its error output |
 | `policy.toml` does not parse | Stop; give the file and line |
 | The test run fails | Warn; use whatever report it wrote |
