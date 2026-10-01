@@ -9,6 +9,7 @@ const OPTIONS = {
   'elk.direction': 'DOWN',
   'elk.edgeRouting': 'ORTHOGONAL',
   'elk.spacing.nodeNode': '32',
+  'elk.spacing.componentComponent': '56',
   'elk.layered.spacing.nodeNodeBetweenLayers': '56',
   'elk.layered.spacing.edgeNodeBetweenLayers': '20',
 };

@@ -25,6 +25,18 @@ test('importers sit above what they import, and every arrow has a route', async 
   }
 });
 
+test('unconnected boxes sit far enough apart for their badges', async () => {
+  // A box's "uses" badge hangs below it and the next box's "used by" badge
+  // sits above that one: together they need about 30 units between boxes.
+  const modules = Array.from({ length: 7 }, (_, i) => ({
+    id: `m${i}`, tree: [`m${i}`], grade: 'unlit', functions: [], uses: [],
+  }));
+  const pos = await layout(viewAt({ libraries: [], modules }, []));
+  const gap = (a, b) => Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w), b.y - (a.y + a.h), a.y - (b.y + b.h));
+  const keys = Object.keys(pos.nodes);
+  for (const a of keys) for (const b of keys) if (a < b) assert.ok(gap(pos.nodes[a], pos.nodes[b]) >= 40, `${a} and ${b} are ${gap(pos.nodes[a], pos.nodes[b])} apart`);
+});
+
 test('an import cycle still lays out', async () => {
   const cycle = { libraries: [], modules: [
     { id: 'a', tree: ['a'], grade: 'unlit', uses: ['b'], functions: [] },
