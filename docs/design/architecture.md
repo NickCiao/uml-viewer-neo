@@ -105,9 +105,9 @@ The **header** holds the breadcrumb and a legend that doubles as a status
 board: the four lamp states with their counts at this level ("● 3 high · ●
 5 medium · ● 12 low · ○ 2 not measured") and "→ imports". The page is meant
 to be sent to people who have never read this doc, so every mark it uses is
-explained there. When nothing is measured, the legend says "○ not measured:
-run `umlv --metrics`". The header also says when the repo was scanned and
-when coverage last ran.
+explained there. Until coverage has run, the legend says "○ not measured:
+run `umlv --metrics`". The header also says, under small uppercase labels,
+when the repo was scanned and when coverage last ran.
 
 Each **box** shows its lamp and its name. Long names are shortened in the
 middle and shown in full on hover and in the card. A folder box reads
@@ -189,7 +189,7 @@ measured ("6 of 9 measured"), so an unmeasured module cannot hide either.
 
 `--metrics` runs the repo's own test tools (see [Languages](#languages)).
 Without it, `umlv` reuses the coverage report from the last run if there is
-one, and the header says how old it is.
+one, and the header shows when that report was written.
 
 ## Decisions
 
@@ -248,9 +248,9 @@ grade filled in. Policy is resolved before embedding (libraries are marked,
 the editor becomes a link prefix), so the page knows nothing about policy.
 One Go type owns this shape and `model.js` is its only reader. The same
 document is also written to `.umlv/data.json`, so agents and scripts can
-query a scan without opening the page. A Go test
-writes it for each sample repo, and the page tests read that same file, so
-the two languages cannot drift apart.
+query a scan without opening the page. A Go test writes it from a sample
+scan with scores, and the page tests read that same file, so the two
+languages cannot drift apart.
 
 ### Policy
 
@@ -258,7 +258,7 @@ the two languages cannot drift apart.
 
 | Key | Meaning | Default |
 |---|---|---|
-| `libraries` | Outside libraries drawn as ovals | The 8 imported by the most modules |
+| `libraries` | Outside libraries drawn as ovals; a name also covers its sub-packages (`ai` covers `ai/test`) | The 8 imported by the most modules |
 | `editor` | Editor for source links: `vscode` or `cursor` | `vscode` |
 | `coverage.command`, `coverage.report` | Replace the language's test command and report path | See [Languages](#languages) |
 
@@ -368,10 +368,12 @@ would only be incomplete.
 ## Testing
 
 Red/green TDD throughout. Each language package tests its scanner against a
-small sample repo and its report reader against real reports captured from
-the tool, both kept in its own `testdata/`. CRAP, stats and grading are table-driven, including both
-coverage edge cases. The page's `model.js` and `render.js` run under
-`node --test` against the page data the Go tests write for the sample repos.
+small sample repo, and its report reader against a report in the tool's
+format: a real Go profile from the sample repo, and coverage.py and istanbul
+files written by hand until real ones are captured. Both live in the
+package's own `testdata/`. CRAP, stats and grading are table-driven,
+including both coverage edge cases. The page's `model.js` and `render.js`
+run under `node --test` against the page data a Go test writes.
 An end-to-end test scans each sample repo and checks that the HTML carries
 its data. The look is checked by eye from a browser screenshot of a real
 repo, once in colour and once in greyscale.
