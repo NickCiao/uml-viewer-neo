@@ -1,0 +1,6 @@
+{"lang":"typescript","prefix":"","notes":["Left out 1 file."],"modules":[
+ {"ns":"src/pricing.ts","path":"pricing","name":"pricing","file":"src/pricing.ts",
+  "imports":[{"to":"src/cart/basket.ts","project":true},
+             {"to":"zod","project":false,"module":"zod"},
+             {"to":"node:fs","project":false,"std":true,"module":"node:fs"}],
+  "functions":[{"name":"total","file":"src/pricing.ts","start":3,"end":5,"cover_start":3,"cover_col":46,"cc":1}]}]}
