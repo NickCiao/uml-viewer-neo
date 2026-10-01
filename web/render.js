@@ -103,6 +103,7 @@ export function renderHeader(page, view, notice, ui) {
     (page.coverageAt ? stamp(page.coverageAt) : 'none yet');
   return `<nav class="crumbs">${crumbs}</nav>` +
     `<div class="legend">${legend}<span>→ imports</span>` +
+    '<span><b>3+2</b> partners: used by above, uses below; +n outside this folder</span>' +
     `<button data-toggle-arrows>arrows ${ui.arrows ? 'on' : 'off'}</button></div>` +
     `<div class="times">${times}</div>` +
     (notice ? `<p class="notice">${esc(notice)}</p>` : '');

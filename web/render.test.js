@@ -87,6 +87,13 @@ test('the header has a breadcrumb, a legend with counts, and when it was measure
   assert.ok(html.includes('<span class="label">coverage</span> <time '));
 });
 
+test('the legend explains the badges, the one mark it did not', () => {
+  const html = renderHeader(page, viewAt(page, ['cart']), null, on);
+  const note = '<span><b>3+2</b> partners: used by above, uses below; +n outside this folder</span>';
+  assert.ok(html.includes(note), 'a badge note in the legend');
+  assert.ok(html.indexOf('→ imports') < html.indexOf(note));
+});
+
 test('header times are local to the viewer, with the exact ISO string on hover', () => {
   const html = renderHeader(page, viewAt(page, ['cart']), null, on);
   // 19:59 UTC on the 30th is 01:29 on the 1st at +05:30
