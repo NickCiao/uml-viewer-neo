@@ -41,6 +41,15 @@ export function panBy([x, y, w, h], dx, dy) {
   return [x + dx, y + dy, w, h];
 }
 
+// The viewBox that shows the whole diagram. A diagram bigger than the stage is
+// left alone and the SVG shrinks it to fit; a smaller one is grown to the
+// stage's size, so 1 unit is 1px and text never renders larger than its font
+// size. The growth keeps the diagram centred across and at the top.
+export function fitted([x, y, w, h], stageW, stageH) {
+  if (w > stageW || h > stageH) return [x, y, w, h];
+  return [x - (stageW - w) / 2, y, stageW, stageH];
+}
+
 export function start(doc, win) {
   const page = JSON.parse(doc.getElementById('data').textContent);
   const header = doc.getElementById('header');
@@ -52,8 +61,9 @@ export function start(doc, win) {
   let zoomed = null; // a viewBox while zoomed or panned; null means fitted
 
   const svg = () => diagram.querySelector('svg');
-  const fitted = () => svg().getAttribute('viewBox').split(' ').map(Number);
-  const current = () => zoomed || fitted();
+  let content = null; // the diagram's own viewBox, before it is fitted to the stage
+  const fit = () => fitted(content, svg().clientWidth, svg().clientHeight);
+  const current = () => zoomed || fit();
   const setView = (vb) => { zoomed = vb; svg().setAttribute('viewBox', vb.join(' ')); };
 
   async function draw() {
@@ -68,7 +78,10 @@ export function start(doc, win) {
   function paint() {
     header.innerHTML = renderHeader(page, view, notice, state);
     diagram.innerHTML = renderDiagram(view, pos, state);
-    if (zoomed && svg()) svg().setAttribute('viewBox', zoomed.join(' '));
+    if (svg()) {
+      content = svg().getAttribute('viewBox').split(' ').map(Number);
+      svg().setAttribute('viewBox', current().join(' '));
+    }
     card.hidden = !state.selected;
     card.innerHTML = state.selected ? renderCard(page, view, state.selected) : '';
     win.history.replaceState(null, '', formatHash(state) || win.location.pathname);
@@ -138,6 +151,7 @@ export function start(doc, win) {
     }
   });
   win.addEventListener('pointerup', () => { drag = null; });
+  win.addEventListener('resize', () => { if (svg() && !zoomed) svg().setAttribute('viewBox', fit().join(' ')); });
   win.addEventListener('hashchange', () => {
     ({ state, notice } = restore(page, parseHash(win.location.hash)));
     draw();

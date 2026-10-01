@@ -134,7 +134,7 @@ small, so the layout stays compact and does not move when arrows are hidden.
 | Arrows switch | Hide every arrow except the selected box's, so a crowded folder becomes a focus mode |
 | Wheel, drag | Pan |
 | ⌘ or Ctrl with the wheel, pinch | Zoom |
-| `0` | Fit to view, as on load and after every drill-down |
+| `0` | Fit to view, as on load and after every drill-down; a big diagram shrinks to the window, a small one stays at 1:1 so text keeps its size |
 
 A module's **card** starts with its path, as a link that opens it in your
 editor, and the number its lamp is judged on, spelled out: "Grade: amber (μ
