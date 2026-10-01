@@ -15,7 +15,7 @@ No skill, 2026-10-01, Sonnet 5.5 subagent, same prompt as above.
 
 Outcome: correct answer, at a high cost and only because the target was umlv's own repo.
 
-- Answer: all 10 modules green; relatively riskiest internal/policy (μ+σ 7.96, TopLibraries CC 10), internal/page (7.36, Build CC 8), internal/lang/golang (7.02, complexity CC 9); correctly called `web` "unlit = not measured, not safe"; gave link `file:///…/uml-viewer-neo/.umlv/index.html#f=internal&s=internal%2Fpolicy` and a vscode:// link.
+- Answer: 9 modules green, web unlit (not measured); relatively riskiest internal/policy (μ+σ 7.96, TopLibraries CC 10), internal/page (7.36, Build CC 8), internal/lang/golang (7.02, complexity CC 9); correctly called `web` "unlit = not measured, not safe"; gave link `file:///…/uml-viewer-neo/.umlv/index.html#f=internal&s=internal%2Fpolicy` and a vscode:// link.
 - 18 commands. It ran `umlv --help` to discover flags (found --no-open there), then read `.umlv/data.json` raw, grepped docs/design/architecture.md for the grading rule, and read web/app.js and web/model.js source to learn the URL fragment format and how box keys are built.
 - It wrote three ad-hoc Python scripts to list grades, recompute μ/σ per module and print per-function CC/coverage/CRAP — work a jq recipe does in one line.
 - It could not have learnt the data.json fields, the grading rule or the fragment format in any other repo (no design doc there).
