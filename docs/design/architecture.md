@@ -223,9 +223,11 @@ the two languages cannot drift apart.
 
 ## Languages
 
-Everything `umlv` knows about one language lives in one place: how to
-recognise it, how to scan it, and how to run and read its coverage. Adding a
-language means adding one of these, nothing else.
+Everything `umlv` knows about one language lives in its own package: how to
+recognise it, how to scan it, and how to run and read its coverage, along
+with its scanner script, its sample repo and its captured reports. A
+language can be read, tested and removed on its own; adding one means adding
+a package and naming it in `cmd/umlv`, nothing else.
 
 | Language | Recognised by | A module is | Scanned by | Coverage |
 |---|---|---|---|---|
@@ -261,9 +263,12 @@ socket with a faint ring, and hovering a lamp shows its number.
 
 | Package | Job | Depends on |
 |---|---|---|
-| `cmd/umlv` | Flags, wiring, all printing and exit codes | everything |
+| `cmd/umlv` | Flags, the list of languages, wiring, all printing and exit codes | everything |
 | `internal/facts` | The shared types: modules, functions, scores, grades, page data | nothing |
-| `internal/lang` | One file per language (recognise, scan, coverage command, report reader) plus the embedded scanner scripts and the code that runs them | `facts`, `metrics` |
+| `internal/lang` | What every language provides (recognise, scan, coverage command, report reader), and the code that runs a scanner script | `facts`, `metrics` |
+| `internal/lang/golang` | The Go scanner, inside the binary; the cover-profile reader | `lang`, `facts`, `metrics` |
+| `internal/lang/typescript` | `tsscan.js`, embedded; the istanbul reader | `lang`, `facts`, `metrics` |
+| `internal/lang/python` | `pyscan.py`, embedded; the coverage.py reader | `lang`, `facts`, `metrics` |
 | `internal/metrics` | Coverage units, running a command, CRAP, module stats and grades | `facts` |
 | `internal/policy` | Read, default, write and apply the policy | `facts` |
 | `internal/page` | Build the page data, bundle the page code, write `index.html` | `facts`, `web` |
@@ -299,9 +304,9 @@ would only be incomplete.
 
 ## Testing
 
-Red/green TDD throughout. Scanners run against small sample repos in
-`testdata/`, one per language. Report readers parse real reports captured
-from each tool. CRAP, stats and grading are table-driven, including both
+Red/green TDD throughout. Each language package tests its scanner against a
+small sample repo and its report reader against real reports captured from
+the tool, both kept in its own `testdata/`. CRAP, stats and grading are table-driven, including both
 coverage edge cases. The page's `model.js` and `render.js` run under
 `node --test` against the page data the Go tests write for the sample repos.
 An end-to-end test scans each sample repo and checks that the HTML carries
