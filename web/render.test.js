@@ -28,6 +28,15 @@ test('badges show on-screen partners, then outside ones, and hide zero', () => {
   assert.equal(badgeText(0, 0), '');
 });
 
+test('the used-by badge rides 9 above its box, clear of the arrowheads; the uses badge 14 below', () => {
+  const svg = renderDiagram(top, fakePos(top), on);
+  const group = (key) => svg.match(new RegExp(`<g class="box[^"]*" data-key="${key}".*?</g>`))[0];
+  const checkout = group('checkout'); // used by 1, uses 3, 38 tall
+  assert.ok(/<text class="badge" x="[\d.]+" y="-9" text-anchor="end"><title>used by: shop<\/title>1<\/text>/.test(checkout));
+  assert.ok(/<text class="badge" x="[\d.]+" y="52" text-anchor="end"><title>uses: [^<]*<\/title>3<\/text>/.test(checkout));
+  assert.ok(!group('shop').includes('used by:')); // no badge when there is no partner
+});
+
 test('the diagram has a box per key, a lamp per box and an arrow per pair', () => {
   const svg = renderDiagram(top, fakePos(top), on);
   for (const b of top.boxes) assert.ok(svg.includes(`data-key="${b.key}"`));

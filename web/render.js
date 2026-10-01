@@ -54,7 +54,7 @@ export function renderDiagram(view, pos, ui) {
       `<circle class="lamp lamp-${b.grade}" cx="${G.padX + G.lamp / 2}" cy="${cy}" r="${G.lamp / 2}"><title>${esc(lampText(b))}</title></circle>` +
       `<text class="name" x="${tx}" y="${cy + 4.5}"><title>${esc(b.name)}</title>${esc(b.label)}</text>` +
       (b.detail ? `<text class="detail" x="${tx}" y="${cy + G.line + 4}">${esc(b.detail)}</text>` : '') +
-      (usedBy ? `<text class="badge" x="${p.w - 4}" y="-5" text-anchor="end"><title>${esc('used by: ' + partnerNames(b.usedBy))}</title>${usedBy}</text>` : '') +
+      (usedBy ? `<text class="badge" x="${p.w - 4}" y="-9" text-anchor="end"><title>${esc('used by: ' + partnerNames(b.usedBy))}</title>${usedBy}</text>` : '') +
       (uses ? `<text class="badge" x="${p.w - 4}" y="${p.h + 14}" text-anchor="end"><title>${esc('uses: ' + partnerNames(b.uses))}</title>${uses}</text>` : '') +
       '</g>';
   }).join('');

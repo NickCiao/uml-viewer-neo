@@ -30,6 +30,8 @@ code { color: var(--cream); }
 .box .name { fill: var(--cream); font-size: 13px; }
 .box.selected .name { font-weight: bold; }
 .box .detail, .badge { fill: var(--cream-dim); font-size: 12px; }
+/* A charcoal halo knocks the digits out of any arrow that runs under them. */
+.badge { paint-order: stroke; stroke: var(--charcoal); stroke-width: 3px; stroke-linejoin: round; }
 .box, .lib { cursor: pointer; }
 .dim { opacity: 0.45; }
 .lib ellipse { fill: none; stroke: var(--rule); stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
