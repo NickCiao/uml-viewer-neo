@@ -35,6 +35,21 @@ Outcome: correct answer, at a high cost and only because the target was umlv's o
 | Could not learn the field names elsewhere | The data.json table |
 | Treated `web` as "unlit = not measured" correctly | Kept: Reading the numbers and Common mistakes, so it does not regress |
 
+## With the skill
+
+2026-10-01, Sonnet 5.5 subagent, same prompt, told to read ~/.claude/skills/umlv/SKILL.md first.
+
+Outcome: the same correct answer in 3 tool calls (read SKILL.md, one `umlv --no-open` run, two batches of the skill's jq recipes) instead of 18.
+
+- Answer: internal/policy 7.96 (TopLibraries CC 10, 100%, CRAP 10), internal/page 7.36 (Build CC 8, tied with uses), internal/lang/golang 7.02 (complexity CC 9) — real modules and functions with CRAP, CC and coverage; noted CRAP = CC means "split the function", per the skill.
+- Passed `--no-open`; used data.json with jq only; never parsed the HTML or read source to learn the format.
+- Checked `coverageAt` for freshness and did NOT run `--metrics` because nobody had said running tests was acceptable — the skill's guidance.
+- Reported `web` as unlit = not measured, not ranked as risky.
+- Link built with the skill's fragment recipe: `file:///…/uml-viewer-neo/.umlv/index.html#f=internal&s=internal/policy` (raw `/`, parent folder in `f`) — the form verified to work in a browser.
+- Success criteria from Task 21 Step 4: all met. No wording needed tightening.
+
+Against the baseline: the same answer in 3 tool calls instead of 18, with no source reading, and `--metrics` correctly not run.
+
 ## Checked against the tool
 
 Every claim was checked on 2026-10-01 against `umlv --help`, this repo's `.umlv/data.json` (from a
