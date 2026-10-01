@@ -1,0 +1,146 @@
+{
+  "repo": "shop",
+  "scannedAt": "2026-09-30T20:00:00Z",
+  "coverageAt": "2026-09-30T19:59:00Z",
+  "editorPrefix": "vscode://file/repo/",
+  "bands": {
+    "amber": "over 8, up to 12",
+    "green": "8 or less",
+    "red": "over 12"
+  },
+  "modules": [
+    {
+      "id": "src/cart/basket.ts",
+      "tree": [
+        "cart",
+        "basket"
+      ],
+      "name": "basket",
+      "source": "src/cart/basket.ts",
+      "grade": "amber",
+      "stats": {
+        "mu": 6.5625,
+        "sigma": 2.4375,
+        "max": 9
+      },
+      "functions": [
+        {
+          "name": "Basket.add",
+          "file": "src/cart/basket.ts",
+          "line": 4,
+          "cc": 3,
+          "coverage": 0.5,
+          "crap": 4.125
+        },
+        {
+          "name": "Basket.full",
+          "file": "src/cart/basket.ts",
+          "line": 8,
+          "cc": 9,
+          "coverage": 1,
+          "crap": 9
+        }
+      ],
+      "uses": []
+    },
+    {
+      "id": "src/cart/index.ts",
+      "tree": [
+        "cart"
+      ],
+      "name": "cart",
+      "source": "src/cart/index.ts",
+      "grade": "unlit",
+      "functions": [],
+      "uses": [
+        "src/cart/basket.ts"
+      ]
+    },
+    {
+      "id": "src/checkout.ts",
+      "tree": [
+        "checkout"
+      ],
+      "name": "checkout",
+      "source": "src/checkout.ts",
+      "grade": "red",
+      "stats": {
+        "mu": 16,
+        "sigma": 14,
+        "max": 30
+      },
+      "functions": [
+        {
+          "name": "run",
+          "file": "src/checkout.ts",
+          "line": 9,
+          "cc": 5,
+          "coverage": 0,
+          "crap": 30
+        },
+        {
+          "name": "neverCalled",
+          "file": "src/checkout.ts",
+          "line": 19,
+          "cc": 1,
+          "coverage": 0,
+          "crap": 2
+        }
+      ],
+      "uses": [
+        "lib:zod",
+        "src/cart/basket.ts",
+        "src/pricing.ts"
+      ]
+    },
+    {
+      "id": "src/index.ts",
+      "tree": [
+        "shop"
+      ],
+      "name": "shop",
+      "source": "src/index.ts",
+      "grade": "unlit",
+      "functions": [],
+      "uses": [
+        "src/checkout.ts"
+      ]
+    },
+    {
+      "id": "src/pricing.ts",
+      "tree": [
+        "pricing"
+      ],
+      "name": "pricing",
+      "source": "src/pricing.ts",
+      "grade": "green",
+      "stats": {
+        "mu": 1,
+        "sigma": 0,
+        "max": 1
+      },
+      "functions": [
+        {
+          "name": "total",
+          "file": "src/pricing.ts",
+          "line": 3,
+          "cc": 1,
+          "coverage": 1,
+          "crap": 1
+        }
+      ],
+      "uses": [
+        "src/cart/basket.ts"
+      ]
+    }
+  ],
+  "libraries": [
+    {
+      "id": "lib:zod",
+      "name": "zod"
+    }
+  ],
+  "notes": [
+    "Left out 1 file."
+  ]
+}
