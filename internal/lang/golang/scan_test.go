@@ -1,12 +1,14 @@
 package golang
 
 import (
+	"errors"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"uml-viewer-neo/internal/facts"
@@ -118,5 +120,106 @@ func TestMethodNamesUseTheReceiverTypeEvenWhenGeneric(t *testing.T) {
 func TestLangIsRecognisedByGoMod(t *testing.T) {
 	if Lang.Name != "go" || Lang.Markers[0] != "go.mod" || Lang.Scan == nil {
 		t.Fatalf("Lang = %+v", Lang)
+	}
+}
+
+func parseFunc(t *testing.T, decls string) *ast.FuncDecl {
+	t.Helper()
+	f, err := parser.ParseFile(token.NewFileSet(), "p.go", "package p\n"+decls, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f.Decls[len(f.Decls)-1].(*ast.FuncDecl)
+}
+
+func TestComplexityCountsEachDecisionPoint(t *testing.T) {
+	for _, c := range []struct {
+		body string
+		want int
+	}{
+		{"", 1},
+		{"if a {}", 2},
+		{"if a && b {}", 3},
+		{"if a || b {}", 3},
+		{"if a != b {}", 2}, // only && and || are short-circuits
+		{"for {}", 2},
+		{"for range ch {}", 2},
+		{"switch { case a: case b: default: }", 3}, // default is not a decision
+		{"switch { default: }", 1},
+		{"select { case <-ch: default: }", 2},
+	} {
+		fd := parseFunc(t, "func f(a, b bool, ch chan int) {"+c.body+"}")
+		if got := complexity(fd); got != c.want {
+			t.Errorf("%q: CC = %d, want %d", c.body, got, c.want)
+		}
+	}
+}
+
+func TestMethodNamesSeeThroughParenthesesAndNameNothingElse(t *testing.T) {
+	fd := parseFunc(t, "type S struct{}\nfunc (s (*S)) A() {}")
+	if got := funcName(fd); got != "S.A" {
+		t.Fatalf("got %q", got)
+	}
+	if got := recvType(&ast.ArrayType{}); got != "?" {
+		t.Fatalf("a receiver that is no type name is %q, want ?", got)
+	}
+}
+
+func TestModulePathIsTheFirstPackagesModuleOrNothing(t *testing.T) {
+	if got := modulePath(nil); got != "" {
+		t.Fatalf("no packages: %q", got)
+	}
+	pkgs := []listed{
+		{ImportPath: "a"},
+		{ImportPath: "b", Module: &struct{ Path, Dir string }{}},
+		{ImportPath: "c", Module: &struct{ Path, Dir string }{Path: "example.com/m"}},
+		{ImportPath: "d", Module: &struct{ Path, Dir string }{Path: "example.com/other"}},
+	}
+	if got := modulePath(pkgs); got != "example.com/m" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestFunctionsSkipFilesThatDoNotParse(t *testing.T) {
+	dir := t.TempDir()
+	for name, src := range map[string]string{"bad.go": "package p\nfunc (", "good.go": "package p\nfunc Good() {}\n"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := functions(dir, listed{Dir: dir, GoFiles: []string{"bad.go", "good.go"}})
+	if len(got) != 1 || got[0].Name != "Good" || got[0].File != "good.go" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestScanNamesAMissingGoToolchain(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	_, err := Scan(t.TempDir())
+	var missing *facts.MissingToolError
+	if !errors.As(err, &missing) || missing.Tool != "go" {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestScanReportsWhatGoListSaysWhenItFails(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module x\nbogus line\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Scan(root)
+	if err == nil || !strings.Contains(err.Error(), "go list") || !strings.Contains(err.Error(), "unknown directive") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestScanRejectsGoListOutputItCannotRead(t *testing.T) {
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "go"), []byte("#!/bin/sh\necho 'not json'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+	if _, err := Scan(t.TempDir()); err == nil {
+		t.Fatal("garbage from go list must be an error, not an empty scan")
 	}
 }
