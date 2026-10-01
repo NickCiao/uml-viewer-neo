@@ -140,3 +140,67 @@ func TestStopsOnABrokenPolicyWithItsLine(t *testing.T) {
 		t.Fatalf("exit %d: %s", code, errOut)
 	}
 }
+
+func readPage(t *testing.T, dir string) facts.Page {
+	t.Helper()
+	var p facts.Page
+	b, _ := os.ReadFile(filepath.Join(dir, ".umlv/data.json"))
+	if err := json.Unmarshal(b, &p); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func TestMetricsRunsTheTestsAndLightsTheLamps(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs the sample repo's own go test")
+	}
+	dir := copyShop(t)
+	code, out, errOut, _ := umlv(t, "--metrics", "--no-open", dir)
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut)
+	}
+	if !strings.Contains(out, "2 modules: 0 red, 0 amber, 2 green, 0 unlit") {
+		t.Fatalf("summary = %q", out)
+	}
+	p := readPage(t, dir)
+	if p.CoverageAt == "" || p.Bands["red"] != "over 12" {
+		t.Fatalf("coverageAt = %q, bands = %v", p.CoverageAt, p.Bands)
+	}
+}
+
+func TestAPlainRunReusesTheLastReport(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs the sample repo's own go test")
+	}
+	dir := copyShop(t)
+	umlv(t, "--metrics", "--no-open", dir)
+	if _, out, _, _ := umlv(t, "--no-open", dir); !strings.Contains(out, "2 green") {
+		t.Fatalf("summary = %q", out)
+	}
+}
+
+func TestFailingTestsWarnButStillWriteThePage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs the sample repo's own go test")
+	}
+	dir := copyShop(t)
+	os.WriteFile(filepath.Join(dir, "bad_test.go"), []byte("package shop\n\nimport \"testing\"\n\nfunc TestBad(t *testing.T) { t.Fatal(\"no\") }\n"), 0o644)
+	code, _, errOut, _ := umlv(t, "--metrics", "--no-open", dir)
+	if code != 0 || !strings.Contains(errOut, "tests exited with code") {
+		t.Fatalf("exit %d: %s", code, errOut)
+	}
+}
+
+func TestNoReportWarnsWithTheLanguagesHint(t *testing.T) {
+	dir := copyShop(t)
+	os.MkdirAll(filepath.Join(dir, ".umlv"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".umlv/policy.toml"), []byte("[coverage]\ncommand = [\"true\"]\n"), 0o644)
+	code, out, errOut, _ := umlv(t, "--metrics", "--no-open", dir)
+	if code != 0 || !strings.Contains(errOut, "no coverage report") || !strings.Contains(errOut, "Go needs nothing extra") {
+		t.Fatalf("exit %d: %s", code, errOut)
+	}
+	if !strings.Contains(out, "none measured") {
+		t.Fatalf("summary = %q", out)
+	}
+}

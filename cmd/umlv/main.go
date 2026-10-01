@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"uml-viewer-neo/internal/facts"
@@ -20,6 +21,7 @@ import (
 	"uml-viewer-neo/internal/lang/golang"
 	"uml-viewer-neo/internal/lang/python"
 	"uml-viewer-neo/internal/lang/typescript"
+	"uml-viewer-neo/internal/metrics"
 	"uml-viewer-neo/internal/page"
 	"uml-viewer-neo/internal/policy"
 )
@@ -112,12 +114,75 @@ func generate(o options, stderr io.Writer, now func() time.Time) (string, facts.
 	if err != nil {
 		return "", facts.Page{}, err
 	}
-	p := page.Build(scan, facts.Scores{}, page.Options{
-		Repo: filepath.Base(o.root), ScannedAt: now().UTC().Format(time.RFC3339),
-		EditorPrefix: pol.EditorPrefix(o.root), Libraries: pol.Libraries,
+	scores, coverageAt := coverage(o, l, pol, scan, stderr)
+	p := page.Build(scan, scores, page.Options{
+		Repo: filepath.Base(o.root), ScannedAt: now().UTC().Format(time.RFC3339), CoverageAt: coverageAt,
+		EditorPrefix: pol.EditorPrefix(o.root), Libraries: pol.Libraries, Bands: metrics.Bands,
 	})
 	out, err := write(o.root, p)
 	return out, p, err
+}
+
+// coverage returns the scores, and when their report was written: from a
+// fresh test run with --metrics, else from the last report on disk.
+// Problems only warn; the lamps stay unlit.
+func coverage(o options, l lang.Language, pol policy.Policy, scan facts.Scan, stderr io.Writer) (facts.Scores, string) {
+	c := coverageCommand(l, pol, o.root)
+	if o.metrics {
+		runTests(o.root, c, stderr)
+	}
+	cov, at, err := readReport(o.root, l, c, scan)
+	if err != nil {
+		if o.metrics {
+			fmt.Fprintf(stderr, "umlv: %v. %s\n", err, l.CoverageHint)
+		}
+		return facts.Scores{}, ""
+	}
+	return metrics.Score(scan, &cov), at
+}
+
+// coverageCommand is the language's command, with the policy's overrides.
+func coverageCommand(l lang.Language, pol policy.Policy, root string) metrics.Command {
+	c := l.Coverage(root)
+	if len(pol.Coverage.Command) > 0 {
+		c.Args = pol.Coverage.Command
+	}
+	if pol.Coverage.Report != "" {
+		c.Report = pol.Coverage.Report
+	}
+	return c
+}
+
+func runTests(root string, c metrics.Command, stderr io.Writer) {
+	if len(c.Args) == 0 {
+		fmt.Fprintln(stderr, "umlv: no known way to run this repo's tests; set [coverage] in .umlv/policy.toml")
+		return
+	}
+	fmt.Fprintln(stderr, "umlv: running", strings.Join(c.Args, " "))
+	var exit *exec.ExitError
+	if err := metrics.Run(root, c, stderr); errors.As(err, &exit) {
+		fmt.Fprintf(stderr, "umlv: tests exited with code %d; using whatever report they wrote\n", exit.ExitCode())
+	} else if err != nil {
+		fmt.Fprintln(stderr, "umlv:", explain(err))
+	}
+}
+
+// readReport reads the report c names, and when it was written.
+func readReport(root string, l lang.Language, c metrics.Command, scan facts.Scan) (metrics.Coverage, string, error) {
+	path := filepath.Join(root, c.Report)
+	st, err := os.Stat(path)
+	if c.Report == "" || err != nil {
+		return metrics.Coverage{}, "", fmt.Errorf("no coverage report at %s", path)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return metrics.Coverage{}, "", err
+	}
+	cov, err := l.Read(data, root, scan)
+	if err != nil {
+		return metrics.Coverage{}, "", fmt.Errorf("could not read the coverage report: %w", err)
+	}
+	return cov, st.ModTime().UTC().Format(time.RFC3339), nil
 }
 
 func pickLanguage(root, name string) (lang.Language, error) {
