@@ -31,5 +31,5 @@ nothing extra for Go, `pytest-cov` for Python, `@vitest/coverage-v8` for vitest.
 Design: [docs/design/architecture.md](docs/design/architecture.md).
 Plan: [docs/impl/v1-plan.md](docs/impl/v1-plan.md).
 
-Private: the ideas come from unclebob's unlicensed [uml-viewer](https://github.com/unclebob/uml-viewer),
-so this repo is not published.
+The ideas come from unclebob's [uml-viewer](https://github.com/unclebob/uml-viewer); this is a
+from-scratch rewrite in Go.
