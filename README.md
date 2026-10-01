@@ -3,6 +3,8 @@
 `umlv` turns a Go, TypeScript or Python repository into one HTML page: the folders and modules
 as boxes, their imports as arrows, and a lamp on each box showing how risky its code is to change.
 
+New to the page? [docs/tutorial.md](docs/tutorial.md) walks through a small example.
+
 ## Use
 
     umlv [--metrics] [--lang go|typescript|python] [--no-open] [repo]

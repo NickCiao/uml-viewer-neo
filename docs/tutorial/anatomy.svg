@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 270" width="720" height="270" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+  <rect width="720" height="270" rx="10" fill="#1C1A17"/>
+
+  <!-- checkout, dimmed: only here to own the arrow -->
+  <g opacity="0.55">
+    <rect x="262" y="24" width="136" height="40" fill="#2E2924" stroke="#534C43"/>
+    <circle cx="284" cy="44" r="6" fill="#E0A030"/>
+    <text x="298" y="49" font-size="15" fill="#E8DCC4">checkout</text>
+  </g>
+  <line x1="330" y1="64" x2="330" y2="132" stroke="#8A8070" stroke-width="1.5"/>
+  <polygon points="325,132 335,132 330,140" fill="#8A8070"/>
+
+  <!-- cart -->
+  <rect x="268" y="140" width="124" height="40" fill="#2E2924" stroke="#534C43"/>
+  <circle cx="290" cy="160" r="6" fill="#3B8A4E"/>
+  <text x="306" y="165" font-size="15" fill="#E8DCC4">cart</text>
+  <text x="392" y="130" font-size="13" fill="#A89E8C" text-anchor="end">1+2</text>
+  <text x="392" y="200" font-size="13" fill="#A89E8C" text-anchor="end">+2</text>
+
+  <!-- labels -->
+  <g stroke="#C9A86A" stroke-width="1" fill="none">
+    <polyline points="400,125 440,96 452,96"/>
+    <polyline points="400,195 440,226 452,226"/>
+    <polyline points="324,100 228,100"/>
+    <polyline points="282,166 240,214 228,214"/>
+  </g>
+  <g font-size="13" fill="#E8DCC4">
+    <text x="458" y="92">used by: 1 box in this</text>
+    <text x="458" y="110">folder, 2 outside it</text>
+    <text x="458" y="222">uses: none in this</text>
+    <text x="458" y="240">folder, 2 outside it</text>
+    <text x="220" y="96" text-anchor="end">arrow: checkout</text>
+    <text x="220" y="114" text-anchor="end">imports cart</text>
+    <text x="220" y="210" text-anchor="end">lamp: how risky cart</text>
+    <text x="220" y="228" text-anchor="end">is to change</text>
+  </g>
+</svg>

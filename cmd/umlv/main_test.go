@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -18,14 +19,21 @@ func copyShop(t *testing.T) string { return copySample(t, "golang") }
 
 // copySample copies a language's sample repo to a temp dir whose name has a space.
 func copySample(t *testing.T, language string) string {
+	return copyTree(t, filepath.Join("../../internal/lang", language, "testdata/shop"), "my shop")
+}
+
+// copyTree copies src, minus any .umlv output, to a temp dir called name.
+func copyTree(t *testing.T, src, name string) string {
 	t.Helper()
-	src := filepath.Join("../../internal/lang", language, "testdata/shop")
-	dst := filepath.Join(t.TempDir(), "my shop")
+	dst := filepath.Join(t.TempDir(), name)
 	err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		rel, _ := filepath.Rel(src, p)
+		if d.IsDir() && d.Name() == ".umlv" {
+			return filepath.SkipDir
+		}
 		if d.IsDir() {
 			return os.MkdirAll(filepath.Join(dst, rel), 0o755)
 		}
@@ -235,5 +243,32 @@ func TestSummaryPointsToTheWarningRatherThanAskingForMetricsAfterMetricsRan(t *t
 	_, out, _, _ := umlv(t, "--metrics", "--no-open", dir)
 	if !strings.Contains(out, "none measured (see the warning above)") || strings.Contains(out, "run with --metrics") {
 		t.Fatalf("--metrics summary = %q", out)
+	}
+}
+
+// docs/tutorial.md describes these lamps on examples/bakery, so a change in
+// scoring has to fail here before it quietly makes the tutorial wrong.
+func TestTheTutorialExampleLightsTheLampsTheTutorialDescribes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs the example's own go test")
+	}
+	dir := copyTree(t, "../../examples/bakery", "bakery")
+	if code, _, errOut, _ := umlv(t, "--metrics", "--no-open", dir); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut)
+	}
+	p := readPage(t, dir)
+	got := map[string]facts.Grade{}
+	for _, m := range p.Modules {
+		got[m.ID] = m.Grade
+	}
+	want := map[string]facts.Grade{
+		"bakery/cmd/bakery": facts.Green, "bakery/menu": facts.Green, "bakery/money": facts.Green,
+		"bakery/orders/cart": facts.Green, "bakery/orders/checkout": facts.Amber, "bakery/report": facts.Red,
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("grades = %v, want %v", got, want)
+	}
+	if len(p.Libraries) != 1 || p.Libraries[0].Name != "github.com/BurntSushi/toml" {
+		t.Fatalf("libraries = %v", p.Libraries)
 	}
 }

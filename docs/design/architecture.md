@@ -378,7 +378,9 @@ package's own `testdata/`. CRAP, stats and grading are table-driven,
 including both coverage edge cases. The page's `model.js` and `render.js`
 run under `node --test` against the page data a Go test writes.
 An end-to-end test scans each sample repo and checks that the HTML carries
-its data. The look is checked by eye from a browser screenshot of a real
+its data. The tutorial's example, `examples/bakery`, is a Go module of its
+own, so the self-check skips it, and a test pins its lamps so the tutorial's
+words and screenshots stay true. The look is checked by eye from a browser screenshot of a real
 repo, once in colour and once in greyscale.
 
 ## Later
