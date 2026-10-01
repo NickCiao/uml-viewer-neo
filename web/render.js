@@ -82,7 +82,14 @@ function partnerNames(side) {
   return [...side.on.map(displayName), ...side.off.map((k) => `${k} (outside)`)].join(', ');
 }
 
-const stamp = (iso) => (iso ? iso.replace('T', ' ').slice(0, 16) : '');
+// A timestamp as the viewer's local YYYY-MM-DD HH:MM, with the exact ISO string on hover.
+const pad = (n) => String(n).padStart(2, '0');
+function stamp(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `<time title="${esc(iso)}">${local}</time>`;
+}
 
 export function renderHeader(page, view, notice, ui) {
   const crumbs = [`<a data-folder="">${esc(page.repo)}</a>`].concat(view.folder.map((seg, i) =>
@@ -92,8 +99,8 @@ export function renderHeader(page, view, notice, ui) {
     ? [['red', 'high'], ['amber', 'medium'], ['green', 'low'], ['unlit', 'not measured']]
         .map(([g, label]) => `<span><span class="lamp-dot lamp-${g}"></span>${c[g]} ${label}</span>`).join(' · ')
     : '<span><span class="lamp-dot lamp-unlit"></span>not measured: run <code>umlv --metrics</code></span>';
-  const times = `<span class="label">scanned</span> ${esc(stamp(page.scannedAt))} · <span class="label">coverage</span> ` +
-    (page.coverageAt ? esc(stamp(page.coverageAt)) : 'none yet');
+  const times = `<span class="label">scanned</span> ${stamp(page.scannedAt)} · <span class="label">coverage</span> ` +
+    (page.coverageAt ? stamp(page.coverageAt) : 'none yet');
   return `<nav class="crumbs">${crumbs}</nav>` +
     `<div class="legend">${legend}<span>→ imports</span>` +
     `<button data-toggle-arrows>arrows ${ui.arrows ? 'on' : 'off'}</button></div>` +

@@ -4,6 +4,10 @@ import { readFileSync } from 'node:fs';
 import { viewAt } from './model.js';
 import { esc, badgeText, renderDiagram, renderHeader, renderCard } from './render.js';
 
+// Header times are shown in local time, so pin a zone that is not UTC (+05:30, no DST)
+// before any Date exists; that keeps a plain `node --test web/` the same on every machine.
+process.env.TZ = 'Asia/Kolkata';
+
 const page = JSON.parse(readFileSync(new URL('./testdata/shop.page.json', import.meta.url)));
 
 // Positions without ELK: boxes in a row, each arrow a straight line.
@@ -80,7 +84,14 @@ test('the header has a breadcrumb, a legend with counts, and when it was measure
   const html = renderHeader(page, viewAt(page, ['cart']), null, on);
   assert.ok(html.includes('data-folder=""') && html.includes('data-folder="cart"'));
   assert.ok(html.includes('1 medium') && html.includes('1 not measured'));
-  assert.ok(html.includes('<span class="label">coverage</span> 2026-09-30 19:59'));
+  assert.ok(html.includes('<span class="label">coverage</span> <time '));
+});
+
+test('header times are local to the viewer, with the exact ISO string on hover', () => {
+  const html = renderHeader(page, viewAt(page, ['cart']), null, on);
+  // 19:59 UTC on the 30th is 01:29 on the 1st at +05:30
+  assert.ok(html.includes('<time title="2026-09-30T19:59:00Z">2026-10-01 01:29</time>'));
+  assert.ok(html.includes('<time title="2026-09-30T20:00:00Z">2026-10-01 01:30</time>'));
 });
 
 test('before any coverage the legend says how to get it, and a notice shows', () => {
