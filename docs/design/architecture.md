@@ -1,119 +1,215 @@
 # uml-viewer-neo: design
 
 `umlv` reads a code repository and writes one HTML page that shows its
-structure: which files and folders exist, which import which, and how risky
-each one is to change. You open the page in a browser, double-click into
-folders, and click a box to see its functions and their scores.
+structure: which parts exist, which use which, and how risky each one is to
+change. You open the page in a browser, double-click into folders, and click
+a box to see its functions and their scores.
 
-It replaces [uml-viewer-polyglot](../../../uml-viewer-polyglot), a fork of
-unclebob's [uml-viewer](https://github.com/unclebob/uml-viewer). The ideas
-(folders as nested components, CRAP and mutation scores painted on the
-diagram) come from there. What changes is the machinery: the fork needs Java
-and draws with Quil, and its picture is hard to read. Upstream has no
-licence, so this repo stays private.
+A few words carry the rest of this doc:
+
+- A **module** is the unit a language imports: a Go package, a TypeScript
+  file, a Python file. Modules live in **folders**.
+- A **box** is one module or folder at the level you are looking at. Folder
+  names end in `/`.
+- An **arrow** from one box to another means the first imports the second.
+- A **lamp** on each box grades how risky its code is to change, from its
+  CRAP score (see [Metrics](#metrics)). An unlit lamp means "not measured".
+- A **card** is the side panel that opens when you click a box: its
+  functions, their scores, and what it uses and is used by.
+
+`umlv` replaces the uml-viewer-polyglot fork (`~/Documents/Repos/uml-viewer-polyglot`)
+of unclebob's [uml-viewer](https://github.com/unclebob/uml-viewer). The ideas
+come from there: folders as nested components, risk scores painted on the
+diagram. The machinery changes: the fork needs Java and draws into a desktop
+window with Quil, a Clojure graphics library, and its picture is hard to
+read.
 
 ## Goals
 
-Version 1 is done when it can replace the fork for everyday reading of
-Go, TypeScript and Python repos:
+Version 1 is done when it replaces the fork for everyday reading of Go,
+TypeScript and Python repos:
 
 - One Go binary. Nothing else to install beyond the scanned repo's own
-  toolchain (`go`, `node` or `python3`).
+  toolchain (`go`, `node` or `python3`) and, for `--metrics`, its own test
+  tools.
 - One self-contained HTML file per scan that works offline and can be sent
   to someone.
-- Drill-down by folder, merged arrows, a card per file with its functions and
-  scores.
-- `--metrics` runs the repo's tests with coverage and lights the **C** lamp
-  on every box.
-- A declutter control and arrow hover, because arrow spaghetti was the
-  fork's worst readability problem.
+- Drill-down by folder, one arrow per pair of boxes, and a card for every
+  box.
+- `--metrics` runs the repo's tests with coverage and lights the lamps.
+- Arrows can be switched off, and hovering one names its two ends, because
+  arrow spaghetti was the fork's worst readability problem.
 - A calm 1970s mission-control look (see [Look](#look)).
-- `umlv` holds itself to its own numbers: run on its own repo, its Go code
-  grades green.
+- `umlv` holds itself to its own numbers: run on this repo, every Go module
+  is green.
 
-**Not in version 1:** `--mutate` (the **M** lamp stays unlit), red
-rule-breaking arrows, proposals, repos that mix languages, Rust, live
-rescanning. See [Later](#later).
+**Not in version 1:** mutation testing, red rule-breaking arrows, proposals,
+repos that mix languages, Rust, live rescanning. See [Later](#later).
 
-## Shape
+## Two halves
 
 ```mermaid
 flowchart LR
-  repo[Repo source] -->|scan| facts[Facts]
-  tests[Repo tests] -->|--metrics| scores[Scores]
-  policy[.umlv/policy.toml] --> page
-  facts --> page[index.html]
-  scores --> page
-  page -->|open| browser[Browser]
+  repo[(Repo)] --> scan[Scan]
+  repo --> tests["Run tests (--metrics)"]
+  subgraph cli[umlv, in Go: gathers facts]
+    scan --> data[Page data]
+    tests --> data
+  end
+  data -->|embedded in index.html| views
+  subgraph browser[Browser: builds views]
+    views[Fold, lay out, draw]
+  end
 ```
 
-The Go side **gathers facts**: which files exist, their functions, what they
-import, and each function's scores. The page **builds views**: it folds
-files into folders for the level you are looking at, merges parallel arrows,
-grades the lamps, lays the boxes out and draws them.
+The Go side **gathers facts**: the modules, their functions, what they
+import, and every score, including each module's grade. The page **builds
+views**: for the folder you are looking at, it folds deeper modules into
+their folders, merges arrows, lays the boxes out and draws them.
 
-Folding happens in the page, not in Go, because drill-down is interactive.
-The page needs the whole tree to open any folder without asking anything
-else. That keeps the Go side small and makes the page the only place that
-knows what a "view" is.
+Folding happens in the page because drill-down is interactive: the page
+needs the whole tree to open any folder without asking anything else.
+Grading happens in Go, because the thresholds must live in one language and
+the self-check runs there. The page only has to pick the worst grade under a
+folder, which needs no thresholds.
 
 There is no server. A page opened from disk cannot read other files, so the
 facts are embedded in the page itself. The one thing a server would add is
 live rescanning; instead you re-run `umlv` and refresh, and the page keeps
-your place (see [The page](#the-page)).
+your place.
+
+## The page
+
+The page shows one folder level at a time. Each module or folder at that
+level is a box with its name, its lamp, and two badges: how many boxes it
+uses and how many use it, counting partners inside and outside the current
+folder. Arrows join the boxes that are both on screen. Libraries named in the
+policy are drawn as ovals. A folder that is also a module (a Go package with
+sub-packages, a TypeScript `index.ts`) is one box: its card shows the module,
+and double-clicking opens the folder.
+
+| Action | Result |
+|---|---|
+| Double-click a folder | Open it |
+| Esc, or click the breadcrumb | Go up a level |
+| Click a box | Highlight its arrows; open its card |
+| Hover an arrow | Name the box it comes from and the box it points to |
+| Hover a badge | List the boxes behind the count |
+| Arrows switch | Hide or show arrows; boxes stay where they are |
+| Scroll, drag, pinch | Zoom and pan |
+
+Boxes do not list their functions; the card does. That keeps every box
+small, so the layout stays compact and does not move when arrows are hidden.
+
+A module's **card** shows its path, as a link that opens it in your editor;
+its CRAP mean, spread and worst; and a table of its functions with CRAP, CC
+and coverage. A folder's card shows its lamp, how many of its modules were
+measured, and its children. Both list what the box uses and what uses it.
+
+The header says when the repo was scanned and when coverage last ran. The
+current folder and the arrows switch live in the URL fragment, so refreshing
+after a re-scan keeps your place.
+
+## Metrics
+
+**CRAP** (Change Risk Anti-Patterns) measures how risky a function is to
+change: `CC² × (1 − coverage)³ + CC`, where **CC** (cyclomatic complexity)
+is 1 plus one for every branch point: `if`, conditional expression, loop,
+`case`, `catch` or `except`, `&&`, `||`, `??`. A fully tested function
+scores its CC; an untested complex one scores far higher.
+
+**Coverage** counts only what runs inside a function's body. A `def` line,
+or the `const f =` of a one-line arrow function, runs when the file is
+imported and would credit a function nobody called; this is why the
+scanners report where each body starts, down to the column. Two edge cases
+the fork got wrong:
+
+| Case | Treated as |
+|---|---|
+| The module's file is absent from the coverage report | Not measured, not 100% covered |
+| The function has no statements to cover | Covered |
+
+A module's functions are summarised by mean (μ), spread (σ, the standard
+deviation) and worst (max). Its grade reads μ + σ, so one very bad function
+darkens a module whose average looks fine.
+
+| Lamp | μ + σ of the module's CRAP |
+|---|---|
+| Green | 8 or less |
+| Amber | over 8, up to 12 |
+| Red | over 12 |
+| Unlit | no function measured |
+
+The cut-offs come from the fork, which took them from unclebob's tool; we
+revisit them once `umlv` has numbers of its own.
+
+A folder's lamp shows the worst **measured** module under it, and is unlit
+only when nothing under it was measured, so an unmeasured module never
+passes for a bad one. The folder's card says how many of its modules were
+measured ("6 of 9 measured"), so an unmeasured module cannot hide either.
+
+`--metrics` runs the repo's own test tools (see [Languages](#languages)).
+Without it, `umlv` reuses the coverage report from the last run if there is
+one, and the header says how old it is.
 
 ## Decisions
 
 | Decision | Choice | Why |
 |---|---|---|
 | Language | Go | One static binary; no JVM. |
-| Output | One HTML file with facts, code, styles and fonts inside | Works offline, survives being emailed, needs no server. |
-| Layout | [ELK.js](https://github.com/kieler/elkjs) (layered), vendored | A mature layout and arrow-routing library replaces ~1,400 lines of hand-written layout in the fork. |
-| Page code | Plain JavaScript modules, bundled into the page by esbuild's Go API at run time | No npm, no build step, no generated files to go stale. The modules stay importable by tests. |
-| Page tests | Node's built-in `node --test` | Node is already needed for TypeScript scans; no test framework to install. |
-| Drawing | Render functions return SVG markup strings | Testable in Node without a browser DOM. |
-| Config | `.umlv/policy.toml`, written once, then yours | TOML allows comments and hand editing. A clean break from the fork's EDN; the fork's `.uml-viewer/` is left alone. |
-| Where output goes | `.umlv/` in the scanned repo | One folder to ignore: `policy.toml`, `index.html`, `raw/` reports. |
-| Source links | Editor URL scheme (`vscode://file/…:line`), editor chosen in policy | Opens the function in your editor from a static page. |
+| Output | One HTML file with the facts, code and styles inside | Works offline, survives being emailed, needs no server. |
+| Layout | [ELK.js](https://github.com/kieler/elkjs) (layered), vendored | A mature layout and arrow-routing library replaces about 1,400 lines of hand-written layout in the fork. It is most of the page's size, about 1.5 MB. |
+| Page code | Plain JavaScript files, bundled into the page by esbuild's Go API each time `umlv` runs | No npm and no generated files to go stale; the files stay importable by tests. Costs several MB of binary. |
+| Drawing | The page's render functions return SVG and HTML as strings | Testable in Node without a browser. |
+| Page tests | Node's built-in `node --test` | Node is already needed for TypeScript scans. |
+| Policy file | TOML | Comments and hand editing; one small dependency. |
+| Output folder | `.umlv/` in the scanned repo | One folder to ignore: the policy, `index.html`, raw reports. The fork's `.uml-viewer/` is left alone. |
+| Fonts | The system's monospaced font | Nothing to embed or license; a fixed-width font also lets layout size boxes from character counts. |
+| One mark per box | A single lamp (C) in version 1 | A permanently dark second lamp for mutation would read as broken; it arrives with mutation testing. |
 
 ## Contracts
 
-Two boundaries matter. Everything else is internal to one side.
+Three boundaries are internal; the policy file is the contract with you.
 
 ### Scan facts: scanner to CLI
 
-Every scanner produces the same JSON document: a list of modules, each with
-its path, its imports and its functions. That shape is the seam for adding a
-language; nothing downstream knows which scanner produced it.
+Every scanner produces the same JSON: the modules, their imports and their
+functions. Nothing downstream knows which scanner produced it, which is what
+makes a language pluggable. The facts must carry:
 
-| Language | A box is | Scanned by | Runs as |
-|---|---|---|---|
-| Go | a package (directory) | `go list` for packages and imports, `go/parser` for functions | inside the binary |
-| TypeScript / JavaScript | a module (`index.*` stands for its directory) | TypeScript's own parser and module resolver | `node tsscan.js`, embedded in the binary |
-| Python | a module (`__init__.py` stands for its package) | Python's `ast` | `python3 pyscan.py`, embedded in the binary |
-
-Rules every scanner follows:
-
-- **Imports** resolve to a project module, a library (by its real name, such
-  as `github.com/spf13/pflag` or `@scope/pkg`), or the standard library.
+- **Two names per module:** its id, which imports point at (an import path
+  in Go, a file path in TypeScript and Python), and its place in the folder
+  tree, which can differ (`index.ts` stands for its directory; a leading
+  `src/` is dropped).
+- **Where every function is:** its file (a Go package spans several), its
+  lines, and where its body starts, down to the column.
+- **Imports resolved** to a project module, a library by its real name
+  (`github.com/spf13/pflag`, `@scope/pkg`), or the standard library.
   Type-only imports count.
-- **Functions** include methods and object-literal methods, named
-  `Type.method` or `object.method`. Each carries its line range, the line
-  its body starts on, and its complexity.
-- **Complexity (CC)** is 1 plus one per branch point: `if`, conditional
-  expression, loop, `case`, `catch`/`except`, `&&`, `||`, `??`.
-- Tests, vendored code and build output are skipped.
+- **Methods and object-literal methods** as functions, named `Type.method`
+  or `object.method`.
+- **Notes** for anything the scanner left out, such as Python scripts
+  outside every package, so the CLI can say so.
 
-The TypeScript scanner uses the repo's own `typescript` when present, and
-otherwise installs one copy into `~/.cache/umlv/ts` on first use.
+Tests, vendored code and build output are skipped.
+
+### Coverage units: report reader to CRAP
+
+Every test tool reports coverage differently: Go by blocks of statements,
+istanbul by statement, coverage.py by line. Each language's reader turns its
+report into the same units, each a span of a file with a weight and whether
+it ran. CRAP is computed from units and function positions only, so it never
+needs to know which tool ran.
 
 ### Page data: CLI to page
 
-The CLI embeds one JSON document in the page. It carries a schema version,
-the repo name, when and at which commit it was scanned, the modules with
-their functions and per-function scores, the imports, the libraries, and the
-parts of the policy the page needs. One Go type owns this shape, and one page
-module (`model`) is its only reader.
+The CLI embeds one JSON document in the page: when the repo was scanned and
+measured, and the scan facts with each function's scores and each module's
+grade filled in. Policy is resolved before embedding (libraries are marked,
+the editor becomes a link prefix), so the page knows nothing about policy.
+One Go type owns this shape and `model.js` is its only reader. A Go test
+writes it for each sample repo, and the page tests read that same file, so
+the two languages cannot drift apart.
 
 ### Policy
 
@@ -122,168 +218,103 @@ module (`model`) is its only reader.
 | Key | Meaning | Default |
 |---|---|---|
 | `libraries` | Outside libraries drawn as ovals | The 8 imported by the most modules |
-| `order` | Order of the top-level boxes | Alphabetical |
-| `hide_arrows` | Arrows to leave out, as `[from, to]` pairs | None |
 | `editor` | Editor for source links: `vscode` or `cursor` | `vscode` |
-| `coverage.command`, `coverage.report` | Replace the default test command and report path | Per language, below |
+| `coverage.command`, `coverage.report` | Replace the language's test command and report path | See [Languages](#languages) |
 
-## Metrics
+## Languages
 
-**CRAP** measures how risky a function is to change:
-`CC² × (1 − coverage)³ + CC`. A fully tested function scores its CC; an
-untested complex one scores far higher.
+Everything `umlv` knows about one language lives in one place: how to
+recognise it, how to scan it, and how to run and read its coverage. Adding a
+language means adding one of these, nothing else.
 
-**Coverage** counts only lines inside a function's body. A `def` line, or
-the `const f =` of an arrow function, runs at import and would credit a
-function nobody called. Two edge cases the fork got wrong:
+| Language | Recognised by | A module is | Scanned by | Coverage |
+|---|---|---|---|---|
+| Go | `go.mod` | a package | `go list` and `go/parser`, inside the binary | `go test -coverprofile` |
+| TypeScript, JavaScript | `tsconfig.json`, `package.json` | a file | TypeScript's own parser, through `node` | vitest or jest, istanbul JSON |
+| Python | `pyproject.toml`, `setup.py` | a file | Python's `ast`, through `python3` | `python3 -m pytest --cov`, coverage.py JSON |
 
-| Case | Treated as |
-|---|---|
-| The file is absent from the coverage report | Not measured (lamp unlit), not 100% covered |
-| The function has no statements to cover | Covered |
-
-A file's functions are summarised as mean (μ), spread (σ) and worst (max).
-The **C** lamp reads μ + σ, so one very bad function darkens a file whose
-average looks fine.
-
-| Lamp | C: μ + σ of CRAP | M: mutants killed (version 2) |
-|---|---|---|
-| Green | 8 or less | over 90% |
-| Amber | over 8, up to 12 | over 80%, up to 90% |
-| Red | over 12 | 80% or less |
-| Unlit | nothing measured | nothing measured |
-
-A folder's lamp shows the worst **measured** file under it and is unlit
-only when nothing under it was measured, so an unmeasured file never passes
-for a bad one. The folder's card also says how many of its files were
-measured ("6 of 9 measured"), so an unmeasured file cannot hide either.
-
-Coverage runs the repo's own tools; a policy entry replaces the command.
-
-| Language | Default command | Report read |
-|---|---|---|
-| Go | `go test ./... -coverpkg=./... -coverprofile` | Go cover profile |
-| Python | `uv run --with pytest-cov pytest --cov` | coverage.py JSON |
-| TypeScript | `npx vitest run --coverage` or `npx jest --coverage` | istanbul `coverage-final.json` |
-
-## The page
-
-The page shows one folder level at a time. Each child file or folder is a
-box; imports between them are merged into one arrow per pair of boxes.
-Imports that leave the current folder become small tabs on the box (above:
-who uses it from outside; below: what it uses outside). Libraries listed in
-the policy are ovals.
-
-| Action | Result |
-|---|---|
-| Double-click a folder | Open it |
-| Esc, or click the breadcrumb | Go up a level |
-| Click a box | Highlight its arrows; show its card in the side panel |
-| Hover an arrow | Show which box it goes from and to |
-| Declutter control | Cycle the modes below |
-| Scroll, drag, pinch | Zoom and pan |
-
-| Declutter mode | Shows |
-|---|---|
-| Full | Boxes with their function lists, arrows, tabs |
-| Arrows | Boxes with names only, arrows |
-| Boxes | Boxes with names only, no arrows |
-| Triangles | No arrows; each box shows an incoming and an outgoing triangle with counts |
-
-The **card** for a file shows its path (a link that opens it in your
-editor), its CRAP μ, max and σ, and a table of functions with CRAP, CC and
-coverage. The card for a folder shows its lamps, how many files were
-measured, and its children. Both list what the box uses and what uses it.
-
-The current folder and declutter mode live in the URL fragment, so
-refreshing after a re-scan keeps your place.
+The TypeScript and Python scanners are scripts carried inside the binary and
+fed to `node` or `python3` directly; they are never written to disk. The
+TypeScript scanner uses the repo's own `typescript`, so a repo without
+`node_modules` needs `npm install` first.
 
 ## Look
 
 A 1970s mission-control console, tuned for long reading rather than
-nostalgia: warm and dim, no glow or scanlines.
+nostalgia: warm, dim and quiet, with no glow or scanlines to tire the eyes.
+Boxes are plain panels and the lamp alone carries the grade, because the
+fork's whole-box colour fills made its canvas murky. Colour is never the
+only signal: the lamp states differ in brightness, an unlit lamp is a dark
+socket with a faint ring, and hovering a lamp shows its number.
 
 | Token | Role |
 |---|---|
 | Charcoal | Page background |
-| Panel | Box and side-panel fill, one step lighter |
-| Rule | Thin 1px lines: box borders, arrows, table rules |
+| Panel | Box and card fill, one step lighter |
+| Rule | Thin lines: box borders, arrows, table rules |
 | Cream | Body text, box names |
 | Amber | Labels, headings, the selected box |
 | Lamp green, amber, red | Grades |
-| Lamp unlit | A dark lamp with a faint ring: not measured |
-
-- One monospaced family, IBM Plex Mono (OFL), embedded in two weights.
-- Boxes are neutral panels. The lamps carry the grade and a box's border
-  takes the colour of its worse lamp; whole-box colour fills made the fork's
-  canvas murky.
-- Colour is never the only signal: each lamp is lettered, the three lit
-  states differ in brightness, and hovering a lamp shows its number.
+| Lamp unlit | Not measured |
 
 ## Code organisation
 
-```
-cmd/umlv/              flags and orchestration; the only package that wires others
-internal/facts/        the scan-facts and page-data types; shared vocabulary
-internal/scan/         language detection, scanner registry, helper runner
-internal/scan/golang/  the Go scanner
-internal/scan/helpers/ tsscan.js and pyscan.py, embedded
-internal/metrics/      coverage runners, report readers, CRAP
-internal/policy/       read, default and write policy.toml
-internal/page/         build page data, bundle the web code, write index.html
-web/                   model, layout, render, card and app modules; style.css;
-                       vendored ELK.js and fonts
-testdata/              small sample repos per language; captured real reports
-```
-
-Dependencies point one way: `cmd/umlv` uses everything, and every other
-package depends only on `facts` and the standard library (plus TOML in
-`policy` and esbuild in `page`). Scanners know nothing about metrics or the
-page. The page's JavaScript modules follow the same rule inward:
-
-| Module | Job | Depends on |
+| Package | Job | Depends on |
 |---|---|---|
-| `model` | Page data and a folder path in, a view out: boxes, merged arrows, tabs, lamps | nothing |
-| `layout` | A view in, positions and arrow routes out, via ELK.js | ELK.js |
-| `render` | Positions in, SVG markup out | nothing |
-| `card` | A box in, side-panel markup out | nothing |
-| `app` | Events, state, the URL fragment; calls the others | all of the above |
+| `cmd/umlv` | Flags, wiring, all printing and exit codes | everything |
+| `internal/facts` | The shared types: modules, functions, scores, grades, page data | nothing |
+| `internal/lang` | One file per language (recognise, scan, coverage command, report reader) plus the embedded scanner scripts and the code that runs them | `facts`, `metrics` |
+| `internal/metrics` | Coverage units, running a command, CRAP, module stats and grades | `facts` |
+| `internal/policy` | Read, default, write and apply the policy | `facts` |
+| `internal/page` | Build the page data, bundle the page code, write `index.html` | `facts`, `web` |
+| `web` | The page's files, embedded for `page` | nothing |
+
+Packages return errors and warnings and never print or exit; `cmd/umlv`
+decides what to tell you. A run with `--metrics` ends by printing a one-line
+grade summary, which is also how the self-check is read.
+
+The page's code follows the same one-way rule:
+
+| File | Job | Depends on |
+|---|---|---|
+| `model.js` | Page data and a folder in; boxes, merged arrows, badge counts and folder lamps out | nothing |
+| `layout.js` | Boxes and arrows in; positions and arrow routes out, via ELK.js (asynchronous) | ELK.js |
+| `render.js` | Positions in; SVG for the diagram and HTML for the card out | nothing |
+| `app.js` | Events, state and the URL fragment; calls the others | all of the above |
 
 ## Errors
 
-The rule is: stop when the picture would be wrong, carry on with unlit lamps
-when it would only be incomplete.
+Stop when the picture would be wrong; carry on with unlit lamps when it
+would only be incomplete.
 
 | Situation | Behaviour |
 |---|---|
 | The repo's toolchain (`go`, `node`, `python3`) is missing | Stop; name the tool and how to install it |
-| No language detected | Stop; suggest `--lang` |
+| No language recognised | Stop; suggest `--lang` |
+| A TypeScript repo has no `typescript` installed | Stop; suggest `npm install` |
 | A scanner fails | Stop; show its error output |
 | `policy.toml` does not parse | Stop; give the file and line |
 | The test run fails | Warn; use whatever report it wrote |
-| The coverage tool is not installed | Warn; name the package; continue without coverage |
+| The coverage tool is not installed | Warn; name the package; continue unlit |
 
 ## Testing
 
-Red/green TDD throughout.
-
-| Layer | How |
-|---|---|
-| Scanners | Run against the sample repos in `testdata/`; compare with expected facts |
-| Report readers | Parse real captured reports from each tool |
-| CRAP, grading | Table-driven unit tests, including both coverage edge cases |
-| Page modules | `node --test` on `model`, `render` and `card` with fixture page data |
-| Whole tool | Scan each sample repo end to end; check the HTML carries the data |
-| Look | Screenshot a real repo's page in a browser and compare by eye |
-| Self-check | `umlv --metrics .` on this repo; the Go code grades green |
+Red/green TDD throughout. Scanners run against small sample repos in
+`testdata/`, one per language. Report readers parse real reports captured
+from each tool. CRAP, stats and grading are table-driven, including both
+coverage edge cases. The page's `model.js` and `render.js` run under
+`node --test` against the page data the Go tests write for the sample repos.
+An end-to-end test scans each sample repo and checks that the HTML carries
+its data. The look is checked by eye, from a browser screenshot of a real
+repo.
 
 ## Later
 
 | Feature | Notes |
 |---|---|
-| `--mutate` | gremlins, mutmut, Stryker; lights the M lamp |
-| Rule-breaking arrows in red | The policy ranks folders by level; an import pointing the wrong way is red |
-| Proposals | Alternative groupings of folders, viewed as their own diagram |
-| Mixed-language repos | Needed to scan this repo's own `web/` code |
+| Mutation testing (`--mutate`) | gremlins, mutmut, Stryker; adds the M lamp |
+| Rule-breaking arrows in red | The policy ranks folders by level; Go marks each import that points the wrong way, and merged arrows keep the mark if any import under them has it |
+| Proposals | Alternative groupings of folders, viewed as their own diagram; `model.js` keeps building the folder tree separate from viewing one level of it, so a proposal is just another tree |
+| Mixed-language repos | Run several languages over one repo and combine their modules; needed to scan this repo's own `web/` |
 | Python class edges, Rust | Inheritance and Protocol/ABC edges; a Rust scanner |
-| Live rescan | An optional small server, if refresh proves annoying |
+| Live rescan | An optional small server, if refreshing proves annoying |
