@@ -10,7 +10,7 @@ A few words carry the rest of this doc:
 - A **module** is the unit a language imports: a Go package, a TypeScript
   file, a Python file. Modules live in **folders**.
 - A **box** is one module or folder at the level you are looking at. Folder
-  names end in `/`.
+  boxes read `name/ ›` and say how many modules they hold.
 - An **arrow** from one box to another means the first imports the second.
 - A **lamp** on each box grades how risky its code is to change, from its
   CRAP score (see [Metrics](#metrics)). An unlit lamp means "not measured".
@@ -37,8 +37,11 @@ TypeScript and Python repos:
 - Drill-down by folder, one arrow per pair of boxes, and a card for every
   box.
 - `--metrics` runs the repo's tests with coverage and lights the lamps.
-- Arrows can be switched off, and hovering one names its two ends, because
-  arrow spaghetti was the fork's worst readability problem.
+- Selecting a box fades every other arrow, arrows can be switched off, and
+  hovering one names its two ends, because arrow spaghetti was the fork's
+  worst readability problem.
+- A legend on the page itself, because the page will reach people who have
+  never read this doc.
 - A calm 1970s mission-control look (see [Look](#look)).
 - `umlv` holds itself to its own numbers: run on this repo, every Go module
   is green.
@@ -80,35 +83,57 @@ your place.
 
 ## The page
 
-The page shows one folder level at a time. Each module or folder at that
-level is a box with its name, its lamp, and two badges: how many boxes it
-uses and how many use it, counting partners inside and outside the current
-folder. Arrows join the boxes that are both on screen. Libraries named in the
-policy are drawn as ovals. A folder that is also a module (a Go package with
-sub-packages, a TypeScript `index.ts`) is one box: its card shows the module,
-and double-clicking opens the folder.
+The page shows one folder level at a time, laid out top-down: a box sits
+above the boxes it imports, so arrows point down, drawn as right-angled
+lines rather than curves.
 
-| Action | Result |
-|---|---|
-| Double-click a folder | Open it |
-| Esc, or click the breadcrumb | Go up a level |
-| Click a box | Highlight its arrows; open its card |
-| Hover an arrow | Name the box it comes from and the box it points to |
-| Hover a badge | List the boxes behind the count |
-| Arrows switch | Hide or show arrows; boxes stay where they are |
-| Scroll, drag, pinch | Zoom and pan |
+The **header** holds the breadcrumb and a legend that doubles as a status
+board: the four lamp states with their counts at this level ("● 3 high · ●
+5 medium · ● 12 low · ○ 2 not measured") and "→ imports". The page is meant
+to be sent to people who have never read this doc, so every mark it uses is
+explained there. When nothing is measured, the legend says "○ not measured:
+run `umlv --metrics`". The header also says when the repo was scanned and
+when coverage last ran.
+
+Each **box** shows its lamp and its name. Long names are shortened in the
+middle and shown in full on hover and in the card. A folder box reads
+`name/ ›`, with a dim second line such as "9 modules · 6 measured". A folder
+that is also a module (a Go package with sub-packages, a TypeScript
+`index.ts`) is one box with both. Two **badges** count a box's partners: "used
+by" on its top edge and "uses" on its bottom edge, written `3+2` for three
+partners on screen and two outside this folder. Zeros are hidden; hovering a
+badge lists the boxes behind it. **Libraries** named in the policy are ovals
+with a dashed border and no lamp or badges, so they don't compete with the
+repo's own boxes.
 
 Boxes do not list their functions; the card does. That keeps every box
 small, so the layout stays compact and does not move when arrows are hidden.
 
-A module's **card** shows its path, as a link that opens it in your editor;
-its CRAP mean, spread and worst; and a table of its functions with CRAP, CC
-and coverage. A folder's card shows its lamp, how many of its modules were
-measured, and its children. Both list what the box uses and what uses it.
+| Action | Result |
+|---|---|
+| Click a box | Select it: its arrows brighten, other arrows fade, unrelated boxes dim; its card opens |
+| Click empty space | Deselect |
+| Double-click a folder, Enter, or Open on its card | Open the folder |
+| Esc | Close the card; press again to go up a level |
+| Click the breadcrumb | Go to that level |
+| Hover an arrow | Name the box it comes from and the box it points to |
+| Arrows switch | Hide every arrow except the selected box's, so a crowded folder becomes a focus mode |
+| Wheel, drag | Pan |
+| ⌘ or Ctrl with the wheel, pinch | Zoom |
+| `0` | Fit to view, as on load and after every drill-down |
 
-The header says when the repo was scanned and when coverage last ran. The
-current folder and the arrows switch live in the URL fragment, so refreshing
-after a re-scan keeps your place.
+A module's **card** starts with its path, as a link that opens it in your
+editor, and the number its lamp is judged on, spelled out: "Grade: amber (μ
++ σ = 9.4; amber is 8 to 12)". Below that come its CRAP mean, spread and
+worst, and a table of its functions with CRAP, CC and coverage, sorted worst
+first with the worst row marked. A folder's card shows its lamp, how many of
+its modules were measured, its children, and an Open link. Both list what
+the box uses and what uses it.
+
+The current folder, the selected box and the arrows switch live in the URL
+fragment, so refreshing after a re-scan keeps your place, and a sent page can
+point straight at a card. If that folder no longer exists, the page opens at
+the top with a one-line notice.
 
 ## Metrics
 
@@ -135,10 +160,10 @@ darkens a module whose average looks fine.
 
 | Lamp | μ + σ of the module's CRAP |
 |---|---|
-| Green | 8 or less |
-| Amber | over 8, up to 12 |
-| Red | over 12 |
-| Unlit | no function measured |
+| Green: low risk | 8 or less |
+| Amber: medium risk | over 8, up to 12 |
+| Red: high risk | over 12 |
+| Unlit: not measured | no function measured |
 
 The cut-offs come from the fork, which took them from unclebob's tool; we
 revisit them once `umlv` has numbers of its own.
@@ -245,19 +270,37 @@ TypeScript scanner uses the repo's own `typescript`, so a repo without
 A 1970s mission-control console, tuned for long reading rather than
 nostalgia: warm, dim and quiet, with no glow or scanlines to tire the eyes.
 Boxes are plain panels and the lamp alone carries the grade, because the
-fork's whole-box colour fills made its canvas murky. Colour is never the
-only signal: the lamp states differ in brightness, an unlit lamp is a dark
-socket with a faint ring, and hovering a lamp shows its number.
+fork's whole-box colour fills made its canvas murky. Red is the one lamp
+with a bright ring, so risky code is the first thing the eye finds.
 
-| Token | Role |
-|---|---|
-| Charcoal | Page background |
-| Panel | Box and card fill, one step lighter |
-| Rule | Thin lines: box borders, arrows, table rules |
-| Cream | Body text, box names |
-| Amber | Labels, headings, the selected box |
-| Lamp green, amber, red | Grades |
-| Lamp unlit | Not measured |
+Colour is never the only signal. A lit green and a lit red have almost the
+same brightness, so they look alike in greyscale and to a red-green
+colour-blind reader. The ring on red and an amber about twice as bright as
+green keep the four states apart; a greyscale screenshot of the page must
+still show four distinct lamps. Amber is used only for lamps: headings use a
+duller brass, and the selected box gets a cream border, so selection never
+looks like a warning.
+
+| Token | Hex | Use | Contrast |
+|---|---|---|---|
+| Charcoal | `#1C1A17` | Page background | |
+| Panel | `#2E2924` | Box, card and header fill | |
+| Rule | `#534C43` | Box borders, table rules, the unlit lamp's ring | 2.1:1 on Charcoal |
+| Arrow | `#8A8070` | Arrows and their heads | 4.5:1 on Charcoal |
+| Cream | `#E8DCC4` | Names and body text, the selection border, highlighted arrows | 12.8:1 on Charcoal |
+| Cream dim | `#A89E8C` | Paths, badges, hints, second lines | 5.4:1 on Panel |
+| Brass | `#C9A86A` | Header labels, headings, breadcrumb, the worst row | 6.4:1 on Panel |
+| Lamp green | `#3B8A4E` | Low risk | 3.4:1 on Panel |
+| Lamp amber | `#E0A030` | Medium risk | 6.3:1 on Panel |
+| Lamp red | `#E8503A`, with a cream ring | High risk | 3.9:1 on Panel |
+| Lamp unlit | `#221F1B`, with a Rule ring | Not measured | |
+
+Every text colour passes WCAG AA, and the lamps pass the 3:1 minimum for
+non-text marks. Type is the system's monospaced font at four sizes: 11px
+uppercase for header labels, 12px for badges, paths and tables, 13px for box
+names (bold only when selected), and 15px for the card title. Identifiers
+are never uppercased. Lines are 1px and stay 1px at any zoom; a highlighted
+arrow is 1.5px, the selection border 2px, and a lamp 10px across.
 
 ## Code organisation
 
@@ -310,8 +353,8 @@ the tool, both kept in its own `testdata/`. CRAP, stats and grading are table-dr
 coverage edge cases. The page's `model.js` and `render.js` run under
 `node --test` against the page data the Go tests write for the sample repos.
 An end-to-end test scans each sample repo and checks that the HTML carries
-its data. The look is checked by eye, from a browser screenshot of a real
-repo.
+its data. The look is checked by eye from a browser screenshot of a real
+repo, once in colour and once in greyscale.
 
 ## Later
 
