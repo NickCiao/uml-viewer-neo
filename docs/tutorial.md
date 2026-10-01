@@ -4,9 +4,6 @@ This walks through one small example, a pretend bakery app in
 [`examples/bakery`](../examples/bakery), so you know what you're looking at the first time umlv
 opens on your own code. It takes about five minutes.
 
-The short version: the page is a map of your code. Boxes are modules, arrows point at what each
-module depends on, and the lamp on each box tells you how risky it is to change.
-
 ## Boxes and folders
 
 Run `umlv examples/bakery` and you get this:
@@ -17,9 +14,8 @@ Each box is a module. In Go that's a package; in TypeScript or Python it's a fil
 `menu` and `money` are modules.
 
 A box whose name ends in `/ ›`, like `orders/ ›`, is a folder. It stands in for everything inside
-it, and the line underneath says how many modules that is and how many have been measured.
-Double-click it to go inside. The page starts folded to the top level so a big repo doesn't open
-as a wall of boxes.
+it. Double-click the box to go inside. The page starts folded to the top level so a big repo 
+doesn't immediately overwhelm you with a wall of boxes.
 
 Every lamp is dark here. That doesn't mean anything is wrong. A dark lamp means umlv hasn't
 measured that code yet, and nothing has been measured because we haven't run the tests.
@@ -27,17 +23,15 @@ measured that code yet, and nothing has been measured because we haven't run the
 ## Arrows
 
 An arrow from A to B means A imports B, so A depends on B. `report → money` means the report code
-uses the money code.
-
-Arrows don't show what's inside what. Folders do that. An arrow between two folder boxes means
-some module in the first imports some module in the second.
+uses the money code. An arrow between two folder boxes means some module in the first folder
+imports some module in the second folder.
 
 Dependencies sit below the code that uses them, so the page reads top to bottom. `cmd/`, where
 the program starts, is at the top, and `money`, which everything uses, is at the bottom. An arrow
-pointing upward is worth a look: it usually means two parts of the code depend on each other.
+pointing upward is worth a look: it usually means that there's a circular dependency.
 
 The dashed oval is a library from outside the repo, here the TOML parser `menu` uses to read the
-menu file. The standard library isn't drawn, and you pick which outside libraries appear in
+menu file. The standard library isn't drawn, and you can pick which outside libraries appear in
 `.umlv/policy.toml`.
 
 ## Lamps
@@ -52,8 +46,8 @@ measured, so you can tell when the lamps are out of date.
 Green is low risk, amber is medium and red is high. Red lamps also have a light ring, so you can
 tell them apart without relying on colour.
 
-Each function gets a score, called CRAP, from two things: how complicated it is, and how much of
-it the tests actually run. The formula is in the [design doc](design/architecture.md#metrics).
+Each function gets a score, called "CRAP". "CRAP" is calculated from two things: how complicated it is, and how much of
+it the tests actually cover. The formula is in the [design doc](design/architecture.md#metrics).
 In the bakery:
 
 - `main` has 2 paths through it and no tests. It scores 6, green. Simple code is low risk even
