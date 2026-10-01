@@ -246,7 +246,7 @@ The CLI embeds one JSON document in the page: when the repo was scanned and
 measured, and the scan facts with each function's scores and each module's
 grade filled in. Policy is resolved before embedding (libraries are marked,
 the editor becomes a link prefix), so the page knows nothing about policy.
-One Go type owns this shape and `model.js` is its only reader. The same
+One Go type owns this shape; `model.js` and `render.js` are its only readers. The same
 document is also written to `.umlv/data.json`, so agents and scripts can
 query a scan without opening the page. A Go test writes it from a sample
 scan with scores, and the page tests read that same file, so the two
@@ -346,9 +346,9 @@ The page's code follows the same one-way rule:
 
 | File | Job | Depends on |
 |---|---|---|
-| `model.js` | Page data and a folder in; boxes, merged arrows, badge counts and folder lamps out | nothing |
+| `model.js` | Page data and a folder in; boxes, merged arrows, badge counts, folder lamps and box sizes out | nothing |
 | `layout.js` | Boxes and arrows in; positions and arrow routes out, via ELK.js (asynchronous) | ELK.js |
-| `render.js` | Positions in; SVG for the diagram and HTML for the card out | nothing |
+| `render.js` | Positions in; SVG for the diagram and HTML for the header and card out | `model.js` |
 | `app.js` | Events, state and the URL fragment; calls the others | all of the above |
 
 ## Errors
