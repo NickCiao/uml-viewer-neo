@@ -20,8 +20,14 @@ func Run(root string, c Command, out io.Writer) error {
 	if len(c.Args) == 0 {
 		return errors.New("no coverage command")
 	}
-	if _, err := exec.LookPath(c.Args[0]); err != nil {
-		return &facts.MissingToolError{Tool: c.Args[0]}
+	prog := c.Args[0]
+	if strings.ContainsAny(prog, string(filepath.Separator)) && !filepath.IsAbs(prog) {
+		// Relative path like "./scripts/cov.sh"; check against root
+		if _, err := os.Stat(filepath.Join(root, prog)); err != nil {
+			return &facts.MissingToolError{Tool: prog}
+		}
+	} else if _, err := exec.LookPath(prog); err != nil {
+		return &facts.MissingToolError{Tool: prog}
 	}
 	report := filepath.Join(root, c.Report)
 	if err := os.MkdirAll(filepath.Dir(report), 0o755); err != nil {

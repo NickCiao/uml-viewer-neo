@@ -26,8 +26,12 @@ func TestRunWritesTheReportWhereTheCommandIsTold(t *testing.T) {
 func TestRunRemovesAStaleReportFirst(t *testing.T) {
 	root := t.TempDir()
 	report := filepath.Join(root, ".umlv/raw/out.txt")
-	os.MkdirAll(filepath.Dir(report), 0o755)
-	os.WriteFile(report, []byte("old"), 0o644)
+	if err := os.MkdirAll(filepath.Dir(report), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(report, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if err := Run(root, Command{Args: []string{"true"}, Report: ".umlv/raw/out.txt"}, &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
 	}
@@ -62,5 +66,32 @@ func TestRunNamesAMissingProgram(t *testing.T) {
 	var missing *facts.MissingToolError
 	if !errors.As(err, &missing) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestRunHandlesRelativeProgramPaths(t *testing.T) {
+	root := t.TempDir()
+	script := filepath.Join(root, "x.sh")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\necho ran > \"$1\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	origCwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(origCwd)
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	c := Command{Args: []string{"./x.sh", "{report}"}, Report: "report.txt"}
+	if err := Run(root, c, &bytes.Buffer{}); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	b, err := os.ReadFile(filepath.Join(root, "report.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "ran") {
+		t.Fatalf("report = %q", b)
 	}
 }
