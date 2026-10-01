@@ -77,7 +77,7 @@ go mod edit -go=1.27
 printf '.umlv/\n' > .gitignore
 ```
 
-- [ ] **Step 2: Write the fixture** `internal/facts/testdata/ts-shop.json` (a trimmed copy of real `tsscan.js` output):
+- [ ] **Step 2: Write the fixture** `internal/facts/testdata/ts-shop.json` (shaped like `tsscan.js` output; the note is added so the test covers `notes`, which `tsscan.js` itself never sets):
 
 ```json
 {"lang":"typescript","prefix":"","notes":["Left out 1 file."],"modules":[
@@ -394,6 +394,19 @@ func TestRunScriptPipesTheScriptAndPassesTheRootAsOneArgument(t *testing.T) {
 	}
 }
 
+func TestRunScriptPassesAnAbsoluteRootEvenWhenGivenARelativeOne(t *testing.T) {
+	parent := t.TempDir()
+	if err := os.Mkdir(filepath.Join(parent, "my repo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(parent)
+	script := `import json, sys; print(json.dumps({"lang": "x", "prefix": sys.argv[1], "modules": []}))`
+	s, err := RunScript("python3", strings.NewReader(script), "my repo")
+	if err != nil || !filepath.IsAbs(s.Prefix) || filepath.Base(s.Prefix) != "my repo" {
+		t.Fatalf("prefix = %q, err = %v", s.Prefix, err)
+	}
+}
+
 func TestRunScriptReportsTheScriptsErrorOutput(t *testing.T) {
 	script := `import sys; sys.stderr.write("boom"); sys.exit(3)`
 	_, err := RunScript("python3", strings.NewReader(script), t.TempDir())
@@ -474,8 +487,13 @@ func ByName(name string, langs []Language) (Language, error) {
 }
 
 // RunScript runs `<interpreter> - <root>` with script on standard input and
-// decodes the scan facts it prints. Nothing is written to disk.
+// decodes the scan facts it prints. Nothing is written to disk. The script
+// runs inside root, so it is handed root as an absolute path.
 func RunScript(interpreter string, script io.Reader, root string) (facts.Scan, error) {
+	root, err := filepath.Abs(root)
+	if err != nil {
+		return facts.Scan{}, err
+	}
 	if _, err := exec.LookPath(interpreter); err != nil {
 		return facts.Scan{}, &facts.MissingToolError{Tool: interpreter}
 	}
@@ -532,6 +550,12 @@ cp ../uml-viewer-polyglot/resources/helpers/goscan/main.go internal/lang/golang/
 package golang
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"os"
+	"path/filepath"
+	"reflect"
 	"testing"
 
 	"uml-viewer-neo/internal/facts"
@@ -591,6 +615,52 @@ func TestScanLeavesOutTests(t *testing.T) {
 				t.Fatalf("test function %s was scanned", f.Name)
 			}
 		}
+	}
+}
+
+func TestImportsResolveLibrariesToTheirModule(t *testing.T) {
+	got := imports([]string{"github.com/spf13/pflag/sub", "fmt", "github.com/acme/shop/x", "C", "golang.org/x/tools/go/ast"},
+		"github.com/acme/shop", []string{"github.com/spf13/pflag", "golang.org/x/tools"})
+	want := []facts.Import{
+		{To: "github.com/spf13/pflag/sub", Module: "github.com/spf13/pflag"},
+		{To: "fmt", Std: true, Module: "fmt"},
+		{To: "github.com/acme/shop/x", Project: true},
+		{To: "golang.org/x/tools/go/ast", Module: "golang.org/x/tools"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestReadRequiresReadsBlocksAndSingleLines(t *testing.T) {
+	gomod := filepath.Join(t.TempDir(), "go.mod")
+	text := "module x\n\nrequire github.com/a/b v1.0.0 // indirect\n\nrequire (\n\tgolang.org/x/tools v0.1.0\n\t// a comment\n\tgithub.com/spf13/pflag v1.0.5\n)\n"
+	if err := os.WriteFile(gomod, []byte(text), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"github.com/spf13/pflag", "golang.org/x/tools", "github.com/a/b"} // longest first
+	if got := readRequires(gomod); !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v", got)
+	}
+	if readRequires(filepath.Join(t.TempDir(), "missing")) != nil {
+		t.Fatal("a missing go.mod has no requires")
+	}
+}
+
+func TestMethodNamesUseTheReceiverTypeEvenWhenGeneric(t *testing.T) {
+	src := "package p\ntype S[T any] struct{}\nfunc (s *S[T]) A() {}\ntype M[K, V any] struct{}\nfunc (m M[K, V]) B() {}\nfunc C() {}\n"
+	f, err := parser.ParseFile(token.NewFileSet(), "p.go", src, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, d := range f.Decls {
+		if fd, ok := d.(*ast.FuncDecl); ok {
+			got = append(got, funcName(fd))
+		}
+	}
+	if !reflect.DeepEqual(got, []string{"S.A", "M.B", "C"}) {
+		t.Fatalf("got %v", got)
 	}
 }
 
@@ -1012,6 +1082,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -1055,7 +1126,7 @@ func TestLoadGivesTheLineOfASyntaxError(t *testing.T) {
 	os.MkdirAll(filepath.Join(root, ".umlv"), 0o755)
 	os.WriteFile(filepath.Join(root, File), []byte("editor = \"vscode\"\nlibraries = [\n"), 0o644)
 	_, _, err := Load(root)
-	if err == nil || !strings.Contains(err.Error(), "policy.toml:") {
+	if err == nil || !regexp.MustCompile(`policy\.toml:\d+:`).MatchString(err.Error()) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -1242,6 +1313,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"testing"
 
 	"uml-viewer-neo/internal/facts"
@@ -1312,6 +1384,9 @@ func TestBuildResolvesUsesToModulesAndListedLibrariesOnly(t *testing.T) {
 
 func TestBuildPlacesModulesInTheFolderTree(t *testing.T) {
 	p := Build(shopScan(), shopScores(), shopOptions())
+	if !sort.SliceIsSorted(p.Modules, func(i, j int) bool { return p.Modules[i].ID < p.Modules[j].ID }) {
+		t.Fatal("modules are not sorted by ID")
+	}
 	if got := find(p, "src/index.ts").Tree; !reflect.DeepEqual(got, []string{"shop"}) {
 		t.Fatalf("root module tree = %v", got)
 	}
@@ -1381,7 +1456,7 @@ func TestBuildMatchesTheGoldenFile(t *testing.T) {
 - [ ] **Step 2: Run them to see them fail**
 
 Run: `go test ./internal/page/`
-Expected: FAIL to compile, `undefined: Build`.
+Expected: FAIL to compile, `undefined: Options` (and `Build`).
 
 - [ ] **Step 3: Write** `internal/page/build.go`
 
@@ -1499,7 +1574,7 @@ func library(imp facts.Import, libs []string) (string, bool) {
 - [ ] **Step 4: Write the golden file and run the tests**
 
 Run: `go test ./internal/page/ -run Golden -update && go test ./internal/page/`
-Expected: PASS. Open `web/testdata/shop.page.json` and check by eye: five modules sorted by ID, `src/checkout.ts` uses `["lib:zod", "src/cart/basket.ts", "src/pricing.ts"]`, `libraries` is only `zod`.
+Expected: PASS. The tests above already pin the order, the uses and the libraries; glance at `web/testdata/shop.page.json` once so you know its shape.
 
 - [ ] **Step 5: Commit**
 
@@ -1985,7 +2060,7 @@ test('the header has a breadcrumb, a legend with counts, and when it was measure
   const html = renderHeader(page, viewAt(page, ['cart']), null, on);
   assert.ok(html.includes('data-folder=""') && html.includes('data-folder="cart"'));
   assert.ok(html.includes('1 medium') && html.includes('1 not measured'));
-  assert.ok(html.includes('coverage 2026-09-30 19:59'));
+  assert.ok(html.includes('<span class="label">coverage</span> 2026-09-30 19:59'));
 });
 
 test('before any coverage the legend says how to get it, and a notice shows', () => {
@@ -2095,7 +2170,7 @@ export function renderDiagram(view, pos, ui) {
 
   const vb = `${-MARGIN} ${-MARGIN} ${pos.width + 2 * MARGIN} ${pos.height + 2 * MARGIN}`;
   return `<svg xmlns="http://www.w3.org/2000/svg" class="diagram" viewBox="${vb}" preserveAspectRatio="xMidYMin meet">` +
-    `<defs>${MARKER}</defs><g class="arrows">${arrows}</g>${boxes}${libs}</svg>`;
+    `<defs>${MARKER}</defs><g class="edges">${arrows}</g>${boxes}${libs}</svg>`;
 }
 
 function lampText(b) {
@@ -2118,8 +2193,8 @@ export function renderHeader(page, view, notice, ui) {
     ? [['red', 'high'], ['amber', 'medium'], ['green', 'low'], ['unlit', 'not measured']]
         .map(([g, label]) => `<span><span class="lamp-dot lamp-${g}"></span>${c[g]} ${label}</span>`).join(' · ')
     : '<span><span class="lamp-dot lamp-unlit"></span>not measured: run <code>umlv --metrics</code></span>';
-  const times = `scanned ${esc(stamp(page.scannedAt))}` +
-    (page.coverageAt ? ` · coverage ${esc(stamp(page.coverageAt))}` : ' · no coverage yet');
+  const times = `<span class="label">scanned</span> ${esc(stamp(page.scannedAt))} · <span class="label">coverage</span> ` +
+    (page.coverageAt ? esc(stamp(page.coverageAt)) : 'none yet');
   return `<nav class="crumbs">${crumbs}</nav>` +
     `<div class="legend">${legend}<span>→ imports</span>` +
     `<button data-toggle-arrows>arrows ${ui.arrows ? 'on' : 'off'}</button></div>` +
@@ -2252,8 +2327,8 @@ func TestRenderEmbedsTheDataAndTheBundledCode(t *testing.T) {
 	if !strings.Contains(html, "<title>shop · umlv</title>") || !strings.Contains(html, "--charcoal: #1C1A17") {
 		t.Fatal("title or styles missing")
 	}
-	if len(html) < 1_000_000 {
-		t.Fatalf("page is %d bytes; ELK.js should make it over 1 MB", len(html))
+	if !strings.Contains(html, "elk.algorithm") || !strings.Contains(html, "org.eclipse.elk") {
+		t.Fatal("the bundle lacks layout.js or ELK.js")
 	}
 }
 
@@ -2339,6 +2414,7 @@ code { color: var(--cream); }
 .crumbs a:last-child { color: var(--cream); }
 .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 12px; color: var(--cream-dim); }
 .times { margin-left: auto; font-size: 12px; color: var(--cream-dim); }
+.label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--brass); }
 .notice { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--brass); }
 
 #stage { flex: 1; display: flex; min-height: 0; }
@@ -2537,6 +2613,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -2544,10 +2621,13 @@ import (
 	"uml-viewer-neo/internal/facts"
 )
 
-func copyShop(t *testing.T) string {
+func copyShop(t *testing.T) string { return copySample(t, "golang") }
+
+// copySample copies a language's sample repo to a temp dir whose name has a space.
+func copySample(t *testing.T, language string) string {
 	t.Helper()
-	src := "../../internal/lang/golang/testdata/shop"
-	dst := filepath.Join(t.TempDir(), "my shop") // a space on purpose
+	src := filepath.Join("../../internal/lang", language, "testdata/shop")
+	dst := filepath.Join(t.TempDir(), "my shop")
 	err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -2602,6 +2682,30 @@ func TestScansARepoAndWritesThePageAndData(t *testing.T) {
 	}
 }
 
+func TestScansEverySampleRepoEndToEnd(t *testing.T) {
+	for language, modules := range map[string]int{"golang": 2, "python": 5, "typescript": 5} {
+		dir := copySample(t, language)
+		if code, _, errOut, _ := umlv(t, "--no-open", dir); code != 0 {
+			t.Fatalf("%s: exit %d: %s", language, code, errOut)
+		}
+		var p facts.Page
+		b, _ := os.ReadFile(filepath.Join(dir, ".umlv/data.json"))
+		if err := json.Unmarshal(b, &p); err != nil || len(p.Modules) != modules {
+			t.Fatalf("%s: %d modules, err %v", language, len(p.Modules), err)
+		}
+		html, _ := os.ReadFile(filepath.Join(dir, ".umlv/index.html"))
+		if !strings.Contains(string(html), `<script type="application/json" id="data">`) || !strings.Contains(string(html), p.Modules[0].ID) {
+			t.Fatalf("%s: the page does not carry its data", language)
+		}
+	}
+}
+
+func TestExplainNamesTheToolAndHowToInstallIt(t *testing.T) {
+	if got := explain(&facts.MissingToolError{Tool: "node"}); !strings.Contains(got, "node is not installed") || !strings.Contains(got, "nodejs.org") {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestOpensThePageByDefault(t *testing.T) {
 	dir := copyShop(t)
 	if code, _, errOut, opened := umlv(t, dir); code != 0 || len(opened) != 1 || !strings.HasSuffix(opened[0], "index.html") {
@@ -2639,7 +2743,7 @@ func TestStopsOnABrokenPolicyWithItsLine(t *testing.T) {
 	dir := copyShop(t)
 	os.MkdirAll(filepath.Join(dir, ".umlv"), 0o755)
 	os.WriteFile(filepath.Join(dir, ".umlv/policy.toml"), []byte("editor = \"vscode\"\nlibraries = [\n"), 0o644)
-	if code, _, errOut, _ := umlv(t, "--no-open", dir); code != 1 || !strings.Contains(errOut, "policy.toml:") {
+	if code, _, errOut, _ := umlv(t, "--no-open", dir); code != 1 || !regexp.MustCompile(`policy\.toml:\d+:`).MatchString(errOut) {
 		t.Fatalf("exit %d: %s", code, errOut)
 	}
 }
@@ -3366,29 +3470,28 @@ github.com/acme/shop/internal/cart/cart.go:13.27,13.48 1 0
 github.com/acme/shop/internal/cart/cart.go:15.29,15.55 1 1
 ```
 
-`internal/lang/python/testdata/coverage.json`, in coverage.py's JSON format (version 3):
+`internal/lang/python/testdata/coverage.json` is written by hand in coverage.py's JSON format (version 3), shaped like a pytest-cov run of the sample's own tests (pytest-cov is not installed here to capture a real one). `never_called` never ran, but its `def` line did, at import:
 
 ```json
 {"meta": {"format": 3, "version": "7.6.1"},
  "files": {
   "src/shop/pricing.py": {"executed_lines": [1, 4, 6], "missing_lines": [], "excluded_lines": [],
                           "summary": {"covered_lines": 3, "num_statements": 3}},
-  "src/shop/checkout.py": {"executed_lines": [1, 2, 4, 15, 16, 17, 18, 20, 23], "missing_lines": [19, 24], "excluded_lines": [],
-                           "summary": {"covered_lines": 9, "num_statements": 11}}},
- "totals": {"covered_lines": 12, "num_statements": 14}}
+  "src/shop/checkout.py": {"executed_lines": [1, 2, 3, 5, 6, 7, 8, 10, 11, 12, 15, 16, 17, 18, 19, 20, 23], "missing_lines": [24],
+                           "excluded_lines": [], "summary": {"covered_lines": 17, "num_statements": 18}}},
+ "totals": {"covered_lines": 20, "num_statements": 21}}
 ```
 
-`internal/lang/typescript/testdata/coverage-final.json`, in istanbul's format. Paths are absolute; the test passes `/ROOT` as the repo root:
+`internal/lang/typescript/testdata/coverage-final.json` is written by hand in istanbul's format (vitest needs installing in the sample to capture a real one). Paths are absolute; the test passes `/ROOT` as the repo root:
 
 ```json
 {"/ROOT/src/pricing.ts": {"path": "/ROOT/src/pricing.ts",
   "statementMap": {
-   "0": {"start": {"line": 3, "column": 0}, "end": {"line": 5, "column": 1}},
-   "1": {"start": {"line": 4, "column": 2}, "end": {"line": 4, "column": 22}},
-   "2": {"start": {"line": 7, "column": 0}, "end": {"line": 12, "column": 2}},
-   "3": {"start": {"line": 9, "column": 4}, "end": {"line": 9, "column": 21}},
-   "4": {"start": {"line": 11, "column": 35}, "end": {"line": 11, "column": 40}}},
-  "s": {"0": 1, "1": 3, "2": 1, "3": 0, "4": 1},
+   "0": {"start": {"line": 4, "column": 2}, "end": {"line": 4, "column": 22}},
+   "1": {"start": {"line": 7, "column": 7}, "end": {"line": 12, "column": 2}},
+   "2": {"start": {"line": 9, "column": 4}, "end": {"line": 9, "column": 21}},
+   "3": {"start": {"line": 11, "column": 35}, "end": {"line": 11, "column": 40}}},
+  "s": {"0": 3, "1": 1, "2": 0, "3": 1},
   "fnMap": {}, "f": {}, "branchMap": {}, "b": {}},
  "/elsewhere/lib.ts": {"path": "/elsewhere/lib.ts",
   "statementMap": {"0": {"start": {"line": 1, "column": 0}, "end": {"line": 1, "column": 5}}},
@@ -3464,7 +3567,7 @@ func TestReadCoverageJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cov.Files) != 2 || len(cov.Units) != 14 {
+	if len(cov.Files) != 2 || len(cov.Units) != 21 {
 		t.Fatalf("files = %v, %d units", cov.Files, len(cov.Units))
 	}
 	if _, err := ReadCoverageJSON([]byte("not json")); err == nil {
@@ -3477,9 +3580,10 @@ func TestScoresTheSampleRepo(t *testing.T) {
 	data, _ := os.ReadFile("testdata/coverage.json")
 	cov, _ := Lang.Read(data, "testdata/shop", scan)
 	checkout := metrics.Score(scan, &cov)["src/shop/checkout.py"]
-	if run := checkout.Functions["run"]; run.Coverage != 0.8 { // the def line is not the body
+	if run := checkout.Functions["run"]; run.Coverage != 1 || run.CRAP != 3 {
 		t.Fatalf("run = %+v", run)
 	}
+	// never_called's def line ran at import; counting it would make this 0.5.
 	if never := checkout.Functions["never_called"]; never.Coverage != 0 || never.CRAP != 2 {
 		t.Fatalf("never_called = %+v", never)
 	}
@@ -3509,10 +3613,10 @@ func TestReadIstanbulKeepsColumnsAndDropsFilesOutsideTheRepo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cov.Files) != 1 || !cov.Files["src/pricing.ts"] || len(cov.Units) != 5 {
+	if len(cov.Files) != 1 || !cov.Files["src/pricing.ts"] || len(cov.Units) != 4 {
 		t.Fatalf("files = %v, %d units", cov.Files, len(cov.Units))
 	}
-	if u := cov.Units[4]; u.Line != 11 || u.Col != 35 || !u.Hit {
+	if u := cov.Units[3]; u.Line != 11 || u.Col != 35 || !u.Hit {
 		t.Fatalf("last unit = %+v", u)
 	}
 }
@@ -3838,6 +3942,9 @@ func readPage(t *testing.T, dir string) facts.Page {
 }
 
 func TestMetricsRunsTheTestsAndLightsTheLamps(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs the sample repo's own go test")
+	}
 	dir := copyShop(t)
 	code, out, errOut, _ := umlv(t, "--metrics", "--no-open", dir)
 	if code != 0 {
@@ -3853,6 +3960,9 @@ func TestMetricsRunsTheTestsAndLightsTheLamps(t *testing.T) {
 }
 
 func TestAPlainRunReusesTheLastReport(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs the sample repo's own go test")
+	}
 	dir := copyShop(t)
 	umlv(t, "--metrics", "--no-open", dir)
 	if _, out, _, _ := umlv(t, "--no-open", dir); !strings.Contains(out, "2 green") {
@@ -3861,6 +3971,9 @@ func TestAPlainRunReusesTheLastReport(t *testing.T) {
 }
 
 func TestFailingTestsWarnButStillWriteThePage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs the sample repo's own go test")
+	}
 	dir := copyShop(t)
 	os.WriteFile(filepath.Join(dir, "bad_test.go"), []byte("package shop\n\nimport \"testing\"\n\nfunc TestBad(t *testing.T) { t.Fatal(\"no\") }\n"), 0o644)
 	code, _, errOut, _ := umlv(t, "--metrics", "--no-open", dir)
@@ -4234,6 +4347,8 @@ package web
 
 import (
 	"io/fs"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -4247,6 +4362,11 @@ func TestStyleUsesTheDesignPaletteAndNoGlow(t *testing.T) {
 		"#C9A86A", "#3B8A4E", "#E0A030", "#E8503A", "#221F1B"} {
 		if !strings.Contains(string(css), hex) {
 			t.Errorf("style.css lacks %s from the Look table", hex)
+		}
+	}
+	for _, m := range regexp.MustCompile(`font-size: (\d+)px`).FindAllStringSubmatch(string(css), -1) {
+		if n, _ := strconv.Atoi(m[1]); n < 11 {
+			t.Errorf("font-size %spx is below the 11px floor", m[1])
 		}
 	}
 	for _, banned := range []string{"text-shadow", "blur(", "gradient("} {
@@ -4305,7 +4425,7 @@ docs/impl/screens.sh
 - The selected box's border is cream, not amber; nothing but lamps uses the saturated amber.
 - Arrows are visible but quieter than box names; faded arrows nearly disappear.
 - The spaced-repetition top level (no coverage) shows the legend's "not measured: run umlv --metrics".
-- Text is never smaller than 11px; header labels are uppercase; identifiers are not.
+- Header labels (`scanned`, `coverage`) and card headings are uppercase; identifiers are not. (The 11px floor is pinned by the test in Step 1.)
 
 Fix `web/style.css` (or the markup in `render.js`, test-first) for any line that fails, then re-run the script.
 
