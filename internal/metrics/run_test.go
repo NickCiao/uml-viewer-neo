@@ -95,3 +95,43 @@ func TestRunHandlesRelativeProgramPaths(t *testing.T) {
 		t.Fatalf("report = %q", b)
 	}
 }
+
+func TestRunRefusesAnEmptyCommand(t *testing.T) {
+	err := Run(t.TempDir(), Command{Report: "r.txt"}, &bytes.Buffer{})
+	if err == nil || err.Error() != "no coverage command" {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestRunNamesAMissingScriptInTheRepo(t *testing.T) {
+	err := Run(t.TempDir(), Command{Args: []string{"./scripts/cov.sh"}, Report: "r.txt"}, &bytes.Buffer{})
+	var missing *facts.MissingToolError
+	if !errors.As(err, &missing) || missing.Tool != "./scripts/cov.sh" {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestRunFailsWhenTheReportFolderCannotBeMade(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "file"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	err := Run(root, Command{Args: []string{"sh", "-c", "echo ran"}, Report: "file/r.txt"}, &out)
+	if err == nil || out.Len() != 0 {
+		t.Fatalf("err = %v, out = %q: the command must not run without a place for its report", err, out.String())
+	}
+}
+
+func TestRunFailsWhenTheStaleReportCannotBeRemoved(t *testing.T) {
+	root := t.TempDir()
+	stuck := filepath.Join(root, "r.txt") // a folder with something in it
+	if err := os.MkdirAll(filepath.Join(stuck, "inside"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	err := Run(root, Command{Args: []string{"sh", "-c", "echo ran"}, Report: "r.txt"}, &out)
+	if err == nil || out.Len() != 0 {
+		t.Fatalf("err = %v, out = %q: a stale report left in place must stop the run", err, out.String())
+	}
+}
