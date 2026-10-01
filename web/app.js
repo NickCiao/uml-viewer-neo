@@ -83,9 +83,8 @@ export function start(doc, win) {
 
   let drag = null;
   let dragged = false;
-  // The first click opens the card, which narrows the diagram and moves every
-  // box, so the second click of a double-click lands on empty space. It is
-  // ignored, and the double-click opens whatever the first click selected.
+  // The first click of a double-click selects the box; the second is ignored,
+  // and the double-click then opens whatever the first one selected.
   diagram.addEventListener('click', (e) => {
     if (dragged || e.detail > 1) return;
     const node = e.target.closest('[data-key]');
