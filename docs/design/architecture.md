@@ -45,9 +45,23 @@ TypeScript and Python repos:
 - A calm 1970s mission-control look (see [Look](#look)).
 - `umlv` holds itself to its own numbers: run on this repo, every Go module
   is green.
+- Other agents can use it well: the page data is also written as plain
+  JSON, and a skill teaches agents to run `umlv` and query that file.
 
 **Not in version 1:** mutation testing, red rule-breaking arrows, proposals,
 repos that mix languages, Rust, live rescanning. See [Later](#later).
+
+## Command line
+
+```
+umlv [--metrics] [--lang go|typescript|python] [--no-open] [repo]
+```
+
+`repo` defaults to the current directory. `--metrics` runs the repo's tests
+with coverage first. `--lang` overrides detection. `--no-open` writes the
+page without opening a browser, for scripts and agents. Every run ends with
+one summary line: how many modules, how many of each grade, and where the
+page is.
 
 ## Two halves
 
@@ -188,7 +202,7 @@ one, and the header says how old it is.
 | Drawing | The page's render functions return SVG and HTML as strings | Testable in Node without a browser. |
 | Page tests | Node's built-in `node --test` | Node is already needed for TypeScript scans. |
 | Policy file | TOML | Comments and hand editing; one small dependency. |
-| Output folder | `.umlv/` in the scanned repo | One folder to ignore: the policy, `index.html`, raw reports. The fork's `.uml-viewer/` is left alone. |
+| Output folder | `.umlv/` in the scanned repo | One folder to ignore: the policy, `index.html`, `data.json`, raw reports. The fork's `.uml-viewer/` is left alone. |
 | Fonts | The system's monospaced font | Nothing to embed or license; a fixed-width font also lets layout size boxes from character counts. |
 | One mark per box | A single lamp (C) in version 1 | A permanently dark second lamp for mutation would read as broken; it arrives with mutation testing. |
 
@@ -232,7 +246,9 @@ The CLI embeds one JSON document in the page: when the repo was scanned and
 measured, and the scan facts with each function's scores and each module's
 grade filled in. Policy is resolved before embedding (libraries are marked,
 the editor becomes a link prefix), so the page knows nothing about policy.
-One Go type owns this shape and `model.js` is its only reader. A Go test
+One Go type owns this shape and `model.js` is its only reader. The same
+document is also written to `.umlv/data.json`, so agents and scripts can
+query a scan without opening the page. A Go test
 writes it for each sample repo, and the page tests read that same file, so
 the two languages cannot drift apart.
 
