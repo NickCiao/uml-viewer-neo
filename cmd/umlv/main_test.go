@@ -225,3 +225,15 @@ func TestMissingProgramLeavesLampsUnlitEvenWithAnOldReport(t *testing.T) {
 		t.Fatalf("coverageAt = %q, want none", p.CoverageAt)
 	}
 }
+
+func TestSummaryPointsToTheWarningRatherThanAskingForMetricsAfterMetricsRan(t *testing.T) {
+	dir := copyShop(t)
+	if _, out, _, _ := umlv(t, "--no-open", dir); !strings.Contains(out, "none measured (run with --metrics)") {
+		t.Fatalf("plain run summary = %q", out)
+	}
+	os.WriteFile(filepath.Join(dir, ".umlv/policy.toml"), []byte("[coverage]\ncommand = [\"true\"]\n"), 0o644)
+	_, out, _, _ := umlv(t, "--metrics", "--no-open", dir)
+	if !strings.Contains(out, "none measured (see the warning above)") || strings.Contains(out, "run with --metrics") {
+		t.Fatalf("--metrics summary = %q", out)
+	}
+}

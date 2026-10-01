@@ -55,7 +55,7 @@ func run(args []string, stdout, stderr io.Writer, open func(string) error, now f
 	if err != nil {
 		return fail(err, stderr)
 	}
-	fmt.Fprintln(stdout, summary(p, out))
+	fmt.Fprintln(stdout, summary(p, out, o.metrics))
 	openPage(o, out, open, stderr)
 	return 0
 }
@@ -252,13 +252,18 @@ func write(root string, p facts.Page) (string, error) {
 	return out, os.WriteFile(out, html, 0o644)
 }
 
-func summary(p facts.Page, out string) string {
+// summary says what the scan found; ranMetrics is whether --metrics was given.
+func summary(p facts.Page, out string, ranMetrics bool) string {
 	n := map[facts.Grade]int{}
 	for _, m := range p.Modules {
 		n[m.Grade]++
 	}
 	if n[facts.Unlit] == len(p.Modules) {
-		return fmt.Sprintf("umlv: %d modules, none measured (run with --metrics) → %s", len(p.Modules), out)
+		advice := "run with --metrics"
+		if ranMetrics {
+			advice = "see the warning above"
+		}
+		return fmt.Sprintf("umlv: %d modules, none measured (%s) → %s", len(p.Modules), advice, out)
 	}
 	return fmt.Sprintf("umlv: %d modules: %d red, %d amber, %d green, %d unlit → %s",
 		len(p.Modules), n[facts.Red], n[facts.Amber], n[facts.Green], n[facts.Unlit], out)
