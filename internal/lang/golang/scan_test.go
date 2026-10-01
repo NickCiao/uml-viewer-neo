@@ -223,3 +223,35 @@ func TestScanRejectsGoListOutputItCannotRead(t *testing.T) {
 		t.Fatal("garbage from go list must be an error, not an empty scan")
 	}
 }
+
+func TestRequiredModuleNamesTheModuleOnOneGoModLine(t *testing.T) {
+	for _, c := range []struct {
+		line    string
+		inBlock bool
+		want    string
+	}{
+		{"github.com/a/b v1.0.0", true, "github.com/a/b"},
+		{"", true, ""},
+		{"require github.com/a/b v1.0.0", false, "github.com/a/b"},
+		{"require (", false, ""},
+		{"require", false, ""},
+		{"module github.com/a/b", false, ""},
+		{"github.com/a/b v1.0.0", false, ""}, // a bare line means nothing outside a block
+	} {
+		if got := requiredModule(c.line, c.inBlock); got != c.want {
+			t.Errorf("requiredModule(%q, %v) = %q, want %q", c.line, c.inBlock, got, c.want)
+		}
+	}
+}
+
+func TestWithoutCommentTrimsAndDropsTheComment(t *testing.T) {
+	for in, want := range map[string]string{
+		"  a b // indirect": "a b",
+		"// only a comment": "",
+		"  plain  ":         "plain",
+	} {
+		if got := withoutComment(in); got != want {
+			t.Errorf("withoutComment(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

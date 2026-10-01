@@ -110,26 +110,43 @@ func readRequires(gomod string) []string {
 	inBlock := false
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		if i := strings.Index(line, "//"); i >= 0 {
-			line = strings.TrimSpace(line[:i])
-		}
-		switch {
-		case line == "require (":
+		line := withoutComment(sc.Text())
+		switch line {
+		case "require (":
 			inBlock = true
-		case inBlock && line == ")":
+		case ")":
 			inBlock = false
-		case inBlock && line != "":
-			out = append(out, strings.Fields(line)[0])
-		case strings.HasPrefix(line, "require "):
-			fs := strings.Fields(line)
-			if len(fs) >= 2 && fs[1] != "(" {
-				out = append(out, fs[1])
+		default:
+			if mod := requiredModule(line, inBlock); mod != "" {
+				out = append(out, mod)
 			}
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return len(out[i]) > len(out[j]) })
 	return out
+}
+
+func withoutComment(line string) string {
+	if i := strings.Index(line, "//"); i >= 0 {
+		line = line[:i]
+	}
+	return strings.TrimSpace(line)
+}
+
+// requiredModule is the module a go.mod line requires: any line inside a
+// require block, or the one after "require " on a single-line directive.
+func requiredModule(line string, inBlock bool) string {
+	fields := strings.Fields(line)
+	if inBlock {
+		if len(fields) == 0 {
+			return ""
+		}
+		return fields[0]
+	}
+	if strings.HasPrefix(line, "require ") && len(fields) >= 2 && fields[1] != "(" {
+		return fields[1]
+	}
+	return ""
 }
 
 func under(path, prefix string) bool {
