@@ -44,10 +44,15 @@ export function panBy([x, y, w, h], dx, dy) {
 // The viewBox that shows the whole diagram. A diagram bigger than the stage is
 // left alone and the SVG shrinks it to fit; a smaller one is grown to the
 // stage's size, so 1 unit is 1px and text never renders larger than its font
-// size. The growth keeps the diagram centred across and at the top.
-export function fitted([x, y, w, h], stageW, stageH) {
-  if (w > stageW || h > stageH) return [x, y, w, h];
-  return [x - (stageW - w) / 2, y, stageW, stageH];
+// size. The growth keeps the diagram centred across and at the top. `covered`
+// is the width an open card hides at the right: the diagram is then fitted and
+// centred in the width left over, so none of it lies under the card.
+export function fitted([x, y, w, h], stageW, stageH, covered = 0) {
+  const room = covered < stageW ? stageW - covered : stageW;
+  if (w <= room && h <= stageH) return [x - (room - w) / 2, y, stageW, stageH];
+  if (room === stageW) return [x, y, w, h];
+  const s = Math.min(room / w, stageH / h);
+  return [x - (room - w * s) / (2 * s), y, stageW / s, stageH / s];
 }
 
 export function start(doc, win) {
@@ -62,7 +67,7 @@ export function start(doc, win) {
 
   const svg = () => diagram.querySelector('svg');
   let content = null; // the diagram's own viewBox, before it is fitted to the stage
-  const fit = () => fitted(content, svg().clientWidth, svg().clientHeight);
+  const fit = () => fitted(content, svg().clientWidth, svg().clientHeight, card.hidden ? 0 : card.offsetWidth);
   const current = () => zoomed || fit();
   const setView = (vb) => { zoomed = vb; svg().setAttribute('viewBox', vb.join(' ')); };
 
@@ -77,13 +82,14 @@ export function start(doc, win) {
 
   function paint() {
     header.innerHTML = renderHeader(page, view, notice, state);
+    // The card first: a fitted view is centred in the width it leaves.
+    card.hidden = !state.selected;
+    card.innerHTML = state.selected ? renderCard(page, view, state.selected) : '';
     diagram.innerHTML = renderDiagram(view, pos, state);
     if (svg()) {
       content = svg().getAttribute('viewBox').split(' ').map(Number);
       svg().setAttribute('viewBox', current().join(' '));
     }
-    card.hidden = !state.selected;
-    card.innerHTML = state.selected ? renderCard(page, view, state.selected) : '';
     win.history.replaceState(null, '', formatHash(state) || win.location.pathname);
   }
 

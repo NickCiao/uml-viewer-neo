@@ -143,9 +143,9 @@ worst, and a table of its functions with CRAP, CC and coverage, sorted worst
 first with the worst row marked. A folder's card shows its lamp, how many of
 its modules were measured, its children, and an Open link. Both list what
 the box uses and what uses it. The card opens over the right of the stage,
-so selecting a box never moves the diagram; while it is open, the fitted
-view is centred in the width the card leaves, so the box's partners are not
-hidden behind it.
+so selecting a box never re-lays-out the diagram; while it is open, the
+fitted view is centred in the width the card leaves, so the box's partners
+are not hidden behind it. A zoomed or panned view is left where it is.
 
 The current folder, the selected box and the arrows switch live in the URL
 fragment, so refreshing after a re-scan keeps your place, and a sent page can

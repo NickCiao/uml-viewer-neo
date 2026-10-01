@@ -44,3 +44,42 @@ test('fitting shrinks a big diagram to the stage but never enlarges a small one'
   // exactly the stage's size is already 1:1
   assert.deepEqual(fitted([-24, -24, 1600, 958], 1600, 958), [-24, -24, 1600, 958]);
 });
+
+// Where the diagram's box lands on the stage, in px, when the SVG draws vb
+// across the whole stage (vb has the stage's shape, so nothing is letterboxed).
+function landing(vb, [x, y, w, h], stageW) {
+  const s = stageW / vb[2];
+  return { left: (x - vb[0]) * s, right: (x + w - vb[0]) * s, top: (y - vb[1]) * s, bottom: (y + h - vb[1]) * s };
+}
+const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-6, `${actual} is not ${expected}`);
+
+test('a covered stage centres a small diagram in the width the card leaves', () => {
+  // 1600 - 380 leaves 1220: centred there, still 1:1 and top-aligned
+  assert.deepEqual(fitted([-24, -24, 500, 300], 1600, 958, 380), [-384, -24, 1600, 958]);
+});
+
+test('a covered stage shrinks a diagram that no longer fits, to the width the card leaves', () => {
+  const wide = [-24, -24, 3000, 800];
+  const vb = fitted(wide, 1600, 958, 380);
+  near(vb[2] / vb[3], 1600 / 958); // the stage's shape, so the SVG adds no margin of its own
+  const at = landing(vb, wide, 1600);
+  near(at.left, 0);
+  near(at.right, 1220); // not a pixel under the card
+  near(at.top, 0);
+
+  const tall = [-24, -24, 800, 2000]; // limited by height: centred in the uncovered part
+  const t = landing(fitted(tall, 1600, 958, 380), tall, 1600);
+  near(t.left + t.right, 1220);
+  near(t.top, 0);
+  near(t.bottom, 958);
+});
+
+test('without a card, fitting is what it always was', () => {
+  assert.deepEqual(fitted([-24, -24, 3000, 800], 1600, 958, 0), [-24, -24, 3000, 800]);
+  assert.deepEqual(fitted([-24, -24, 500, 300], 1600, 958, 0), [-574, -24, 1600, 958]);
+  assert.deepEqual(fitted([-24, -24, 1600, 958], 1600, 958, 0), [-24, -24, 1600, 958]);
+});
+
+test('a card as wide as the stage is ignored, not divided by', () => {
+  assert.deepEqual(fitted([-24, -24, 500, 300], 300, 958, 380), fitted([-24, -24, 500, 300], 300, 958));
+});
