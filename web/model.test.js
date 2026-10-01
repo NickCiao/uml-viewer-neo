@@ -22,6 +22,13 @@ test('a folder that is also a module is one box with its worst measured lamp', (
   assert.equal(cart.stats, null);
 });
 
+test('a folder holding one module says so in the singular', () => {
+  const one = { ...page, libraries: [], modules: [
+    { id: 'cmd/app', tree: ['cmd', 'app'], name: 'app', source: 'cmd/app', grade: 'green', functions: [], uses: [] },
+  ] };
+  assert.equal(box(viewAt(one, []), 'cmd').detail, '1 module · 1 measured');
+});
+
 test('a plain module box carries its stats', () => {
   const checkout = box(viewAt(page, []), 'checkout');
   assert.equal(checkout.kind, 'module');

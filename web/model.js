@@ -96,7 +96,8 @@ export function viewAt(page, folder) {
     const grades = b.members.map((m) => m.grade);
     const measured = grades.filter((g) => g !== 'unlit').length;
     const label = shorten(b.name) + (b.folder ? '/ ›' : '');
-    const detail = b.folder ? `${b.members.length} modules · ${measured} measured` : '';
+    const n = b.members.length;
+    const detail = b.folder ? `${n} module${n === 1 ? '' : 's'} · ${measured} measured` : '';
     const grade = worstGrade(grades);
     counts[grade] += 1;
     return {
