@@ -4,6 +4,7 @@
 package metrics
 
 import (
+	"fmt"
 	"math"
 
 	"uml-viewer-neo/internal/facts"
@@ -38,7 +39,11 @@ type Command struct {
 const greenMax, amberMax = 8.0, 12.0
 
 // Bands describes each grade's cut-off on μ + σ, for the card.
-var Bands = map[string]string{"green": "8 or less", "amber": "over 8, up to 12", "red": "over 12"}
+var Bands = map[string]string{
+	"green": fmt.Sprintf("%.0f or less", greenMax),
+	"amber": fmt.Sprintf("over %.0f, up to %.0f", greenMax, amberMax),
+	"red":   fmt.Sprintf("over %.0f", amberMax),
+}
 
 // CRAP is CC² × (1 − coverage)³ + CC, with coverage from 0 to 1.
 func CRAP(cc int, coverage float64) float64 {
@@ -128,8 +133,9 @@ func Score(scan facts.Scan, cov *Coverage) facts.Scores {
 				continue
 			}
 			c := FunctionCoverage(f, byFile[f.File])
-			fns[f.Name] = facts.FunctionScore{Coverage: c, CRAP: CRAP(f.CC, c)}
-			craps = append(craps, CRAP(f.CC, c))
+			crap := CRAP(f.CC, c)
+			fns[f.Name] = facts.FunctionScore{Coverage: c, CRAP: crap}
+			craps = append(craps, crap)
 		}
 		if len(craps) > 0 {
 			stats := StatsOf(craps)

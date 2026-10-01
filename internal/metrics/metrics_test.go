@@ -31,6 +31,20 @@ func TestCoverageCountsOnlyTheBody(t *testing.T) {
 	}
 }
 
+func TestCoverageExcludesUnitsBelowCoverStart(t *testing.T) {
+	// def run(…):  ← line 2, the def line runs at import
+	//   pass      ← line 3, the body
+	run := facts.Function{File: "a.py", Start: 2, End: 4, CoverStart: 3, CC: 1}
+	units := []Unit{
+		{File: "a.py", Line: 1, Col: NoCol, Weight: 1, Hit: true},  // earlier function
+		{File: "a.py", Line: 2, Col: NoCol, Weight: 1, Hit: true},  // def line: not the body
+		{File: "a.py", Line: 3, Col: NoCol, Weight: 1, Hit: false}, // body
+	}
+	if got := FunctionCoverage(run, units); got != 0 {
+		t.Fatalf("coverage = %v, want 0 (only body counts, which is missed)", got)
+	}
+}
+
 func TestCoverageWeighsUnitsAndAcceptsUnitsWithoutColumns(t *testing.T) {
 	run := facts.Function{File: "shop.go", Start: 10, End: 18, CC: 3}
 	units := []Unit{
@@ -98,5 +112,8 @@ func TestScoreLeavesFilesOutsideTheReportUnmeasured(t *testing.T) {
 func TestBandsDescribeTheCutoffs(t *testing.T) {
 	if !strings.Contains(Bands["green"], "8") || !strings.Contains(Bands["amber"], "12") || !strings.Contains(Bands["red"], "12") {
 		t.Fatalf("bands = %v", Bands)
+	}
+	if Bands["amber"] != "over 8, up to 12" {
+		t.Fatalf("Bands[amber] = %q, want %q", Bands["amber"], "over 8, up to 12")
 	}
 }
