@@ -68,3 +68,70 @@ func TestEditorPrefixEscapesSpaces(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func writePolicy(t *testing.T, text string) string {
+	t.Helper()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".umlv"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, File), []byte(text), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+func TestLoadReadsACustomCoverageCommand(t *testing.T) {
+	root := writePolicy(t, "editor = \"cursor\"\n[coverage]\ncommand = [\"make\", \"cover\"]\nreport = \"build/cover.out\"\n")
+	p, ok, err := Load(root)
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	if !reflect.DeepEqual(p.Coverage.Command, []string{"make", "cover"}) || p.Coverage.Report != "build/cover.out" {
+		t.Fatalf("coverage = %+v", p.Coverage)
+	}
+}
+
+func TestLoadDefaultsALeftOutOrEmptyEditorToVscode(t *testing.T) {
+	for _, text := range []string{"libraries = []\n", "editor = \"\"\n"} {
+		p, _, err := Load(writePolicy(t, text))
+		if err != nil || p.Editor != "vscode" {
+			t.Fatalf("%q: editor = %q, err = %v", text, p.Editor, err)
+		}
+	}
+}
+
+func TestLoadNamesTheFileWhenAValueHasTheWrongType(t *testing.T) {
+	_, ok, err := Load(writePolicy(t, "editor = 5\n"))
+	if !ok || err == nil || !strings.Contains(err.Error(), "policy.toml") {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+}
+
+func TestTopLibrariesNamesAnImportByItsPathWhenItHasNoModule(t *testing.T) {
+	scan := facts.Scan{Modules: []facts.Module{
+		{ID: "a", Imports: []facts.Import{{To: "left-pad"}}},
+		{ID: "b", Imports: []facts.Import{{To: "left-pad"}}},
+	}}
+	if got := TopLibraries(scan, 8); !reflect.DeepEqual(got, []string{"left-pad"}) {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestDefaultPicksTheTopLibrariesAndVscode(t *testing.T) {
+	scan := facts.Scan{Modules: []facts.Module{{ID: "a", Imports: []facts.Import{lib("zod")}}}}
+	p := Default(scan)
+	if p.Editor != "vscode" || !reflect.DeepEqual(p.Libraries, []string{"zod"}) {
+		t.Fatalf("got %+v", p)
+	}
+}
+
+func TestWriteFailsWhenUmlvIsNotAFolder(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".umlv"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Write(root, Policy{Editor: "vscode"}); err == nil {
+		t.Fatal("writing under a file must fail")
+	}
+}
