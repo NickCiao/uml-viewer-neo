@@ -204,3 +204,24 @@ func TestNoReportWarnsWithTheLanguagesHint(t *testing.T) {
 		t.Fatalf("summary = %q", out)
 	}
 }
+
+func TestMissingProgramLeavesLampsUnlitEvenWithAnOldReport(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs the sample repo's own go test")
+	}
+	dir := copyShop(t)
+	if code, out, errOut, _ := umlv(t, "--metrics", "--no-open", dir); code != 0 || !strings.Contains(out, "2 green") {
+		t.Fatalf("exit %d, summary %q: %s", code, out, errOut)
+	}
+	os.WriteFile(filepath.Join(dir, ".umlv/policy.toml"), []byte("[coverage]\ncommand = [\"no-such-tool-xyz\"]\n"), 0o644)
+	code, out, errOut, _ := umlv(t, "--metrics", "--no-open", dir)
+	if code != 0 || !strings.Contains(out, "none measured") {
+		t.Fatalf("exit %d, summary %q: %s", code, out, errOut)
+	}
+	if !strings.Contains(errOut, "no-such-tool-xyz is not installed") || !strings.Contains(errOut, "Go needs nothing extra") {
+		t.Fatalf("stderr = %q", errOut)
+	}
+	if p := readPage(t, dir); p.CoverageAt != "" {
+		t.Fatalf("coverageAt = %q, want none", p.CoverageAt)
+	}
+}

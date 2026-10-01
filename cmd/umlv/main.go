@@ -125,11 +125,13 @@ func generate(o options, stderr io.Writer, now func() time.Time) (string, facts.
 
 // coverage returns the scores, and when their report was written: from a
 // fresh test run with --metrics, else from the last report on disk.
-// Problems only warn; the lamps stay unlit.
+// Problems only warn; the lamps stay unlit. When --metrics could not start
+// the tests, the report on disk is not read: it is older than the request.
 func coverage(o options, l lang.Language, pol policy.Policy, scan facts.Scan, stderr io.Writer) (facts.Scores, string) {
 	c := coverageCommand(l, pol, o.root)
-	if o.metrics {
-		runTests(o.root, c, stderr)
+	if o.metrics && !runTests(o.root, c, stderr) {
+		fmt.Fprintln(stderr, "umlv:", l.CoverageHint)
+		return facts.Scores{}, ""
 	}
 	cov, at, err := readReport(o.root, l, c, scan)
 	if err != nil {
@@ -153,18 +155,22 @@ func coverageCommand(l lang.Language, pol policy.Policy, root string) metrics.Co
 	return c
 }
 
-func runTests(root string, c metrics.Command, stderr io.Writer) {
+// runTests runs the coverage command and reports whether it ran, even to a
+// failing exit. It warns when it did not start.
+func runTests(root string, c metrics.Command, stderr io.Writer) bool {
 	if len(c.Args) == 0 {
 		fmt.Fprintln(stderr, "umlv: no known way to run this repo's tests; set [coverage] in .umlv/policy.toml")
-		return
+		return false
 	}
 	fmt.Fprintln(stderr, "umlv: running", strings.Join(c.Args, " "))
+	err := metrics.Run(root, c, stderr)
 	var exit *exec.ExitError
-	if err := metrics.Run(root, c, stderr); errors.As(err, &exit) {
+	if errors.As(err, &exit) {
 		fmt.Fprintf(stderr, "umlv: tests exited with code %d; using whatever report they wrote\n", exit.ExitCode())
 	} else if err != nil {
 		fmt.Fprintln(stderr, "umlv:", explain(err))
 	}
+	return err == nil || exit != nil
 }
 
 // readReport reads the report c names, and when it was written.
