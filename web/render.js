@@ -14,8 +14,9 @@ export function badgeText(on, off) {
   return '';
 }
 
-const MARKER = '<marker id="head" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" ' +
-  'markerUnits="userSpaceOnUse" orient="auto"><path class="head" d="M0,0 L8,4 L0,8 z"/></marker>';
+const marker = (id) => `<marker id="${id}" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" ` +
+  `markerUnits="userSpaceOnUse" orient="auto"><path class="${id}" d="M0,0 L8,4 L0,8 z"/></marker>`;
+const MARKERS = marker('head') + marker('head-hi');
 const MARGIN = 24;
 
 export function renderDiagram(view, pos, ui) {
@@ -37,7 +38,7 @@ export function renderDiagram(view, pos, ui) {
     const cls = touches ? 'arrow hi' : sel ? 'arrow faded' : 'arrow';
     const d = 'M' + e.points.map(([x, y]) => `${x},${y}`).join(' L');
     return `<g class="edge"><title>${esc(nameOf(e.from))} → ${esc(nameOf(e.to))}</title>` +
-      `<path class="hit" d="${d}"/><path class="${cls}" d="${d}" marker-end="url(#head)"/></g>`;
+      `<path class="hit" d="${d}"/><path class="${cls}" d="${d}" marker-end="url(#${touches ? 'head-hi' : 'head'})"/></g>`;
   }).join('');
 
   const boxes = view.boxes.map((b) => {
@@ -68,7 +69,7 @@ export function renderDiagram(view, pos, ui) {
 
   const vb = `${-MARGIN} ${-MARGIN} ${pos.width + 2 * MARGIN} ${pos.height + 2 * MARGIN}`;
   return `<svg xmlns="http://www.w3.org/2000/svg" class="diagram" viewBox="${vb}" preserveAspectRatio="xMidYMin meet">` +
-    `<defs>${MARKER}</defs><g class="edges">${arrows}</g>${boxes}${libs}</svg>`;
+    `<defs>${MARKERS}</defs><g class="edges">${arrows}</g>${boxes}${libs}</svg>`;
 }
 
 function lampText(b) {

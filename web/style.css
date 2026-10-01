@@ -40,6 +40,7 @@ code { color: var(--cream); }
 .arrow.faded { opacity: 0.25; }
 .hit { fill: none; stroke: transparent; stroke-width: 8px; vector-effect: non-scaling-stroke; }
 .head { fill: var(--arrow); }
+.head-hi { fill: var(--cream); }
 
 .lamp { vector-effect: non-scaling-stroke; }
 .lamp-green { fill: var(--lamp-green); }

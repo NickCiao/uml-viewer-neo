@@ -42,6 +42,9 @@ test('selecting a box highlights its arrows and fades and dims the rest', () => 
   assert.equal((svg.match(/class="arrow faded"/g) || []).length, top.arrows.length - 2);
   assert.ok(/class="box selected" data-key="pricing"/.test(svg));
   assert.ok(/class="box dim" data-key="shop"/.test(svg));
+  // highlighted arrows get the cream head, the rest keep the grey one
+  assert.equal((svg.match(/class="arrow hi"[^>]*marker-end="url\(#head-hi\)"/g) || []).length, 2);
+  assert.equal((svg.match(/class="arrow faded"[^>]*marker-end="url\(#head\)"/g) || []).length, top.arrows.length - 2);
 });
 
 test('with arrows off only the selected box keeps its arrows', () => {
