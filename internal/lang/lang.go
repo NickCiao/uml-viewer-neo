@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"uml-viewer-neo/internal/facts"
+	"uml-viewer-neo/internal/metrics"
 )
 
 // Language is everything umlv knows about one language.
@@ -21,6 +22,12 @@ type Language struct {
 	Name    string
 	Markers []string
 	Scan    func(root string) (facts.Scan, error)
+	// Coverage is the command that runs the repo's tests and writes a report.
+	Coverage func(root string) metrics.Command
+	// Read turns that report into coverage units.
+	Read func(report []byte, root string, scan facts.Scan) (metrics.Coverage, error)
+	// CoverageHint says what to install when no report appears.
+	CoverageHint string
 }
 
 var ErrNoLanguage = errors.New("no language recognised")

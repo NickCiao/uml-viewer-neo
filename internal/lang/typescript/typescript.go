@@ -31,7 +31,11 @@ const (
 )
 
 // Lang is TypeScript and JavaScript: recognised by tsconfig.json or package.json.
-var Lang = lang.Language{Name: "typescript", Markers: []string{"tsconfig.json", "package.json"}, Scan: Scan}
+var Lang = lang.Language{
+	Name: "typescript", Markers: []string{"tsconfig.json", "package.json"}, Scan: Scan,
+	Coverage: coverageCommand, Read: readCoverage,
+	CoverageHint: "vitest needs @vitest/coverage-v8 installed (npm install -D @vitest/coverage-v8); jest has coverage built in.",
+}
 
 // Scan reports the modules, imports and functions of the project at root.
 func Scan(root string) (facts.Scan, error) {

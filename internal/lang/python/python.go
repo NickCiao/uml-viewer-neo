@@ -14,7 +14,11 @@ import (
 var script []byte
 
 // Lang is Python: recognised by pyproject.toml or setup.py.
-var Lang = lang.Language{Name: "python", Markers: []string{"pyproject.toml", "setup.py"}, Scan: Scan}
+var Lang = lang.Language{
+	Name: "python", Markers: []string{"pyproject.toml", "setup.py"}, Scan: Scan,
+	Coverage: coverageCommand, Read: readCoverage,
+	CoverageHint: "pytest needs pytest-cov installed in the repo's Python environment (pip install pytest-cov).",
+}
 
 // Scan reports the modules, imports and functions of the Python project at root.
 func Scan(root string) (facts.Scan, error) {
