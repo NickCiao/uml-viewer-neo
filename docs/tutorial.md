@@ -61,8 +61,8 @@ In the bakery example:
 
 A module's lamp comes from its functions' scores: their average plus how spread out they are, so
 one bad function can't hide behind the average. The module is green if that comes to 8 or less,
-amber up to 12, and red above 12 (you can change the thresholds if you disagree - this is entirely
-a matter of opinion). `report` has a small tested `Takings` function that scores 2 but the module 
+amber up to 12, and red above 12 (these cut-offs are a matter of opinion, carried over from
+unclebob's uml-viewer). `report` has a small tested `Takings` function that scores 2 but the module 
 is red anyway because of `Daily`.
 
 A folder's lamp takes every function inside it together and grades them the same way. `orders/`
