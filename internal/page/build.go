@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"uml-viewer-neo/internal/facts"
+	"uml-viewer-neo/internal/metrics"
 )
 
 // Options are the parts of the page that do not come from the scan.
@@ -51,6 +52,7 @@ func Build(scan facts.Scan, scores facts.Scores, o Options) facts.Page {
 		p.Modules = append(p.Modules, pm)
 	}
 	sort.Slice(p.Modules, func(i, j int) bool { return p.Modules[i].ID < p.Modules[j].ID })
+	p.Folders = metrics.Folders(p.Modules)
 	for _, l := range o.Libraries {
 		if used[l] {
 			p.Libraries = append(p.Libraries, facts.Library{ID: "lib:" + l, Name: l})

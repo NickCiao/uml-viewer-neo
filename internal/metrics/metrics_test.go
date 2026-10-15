@@ -117,3 +117,39 @@ func TestBandsDescribeTheCutoffs(t *testing.T) {
 		t.Fatalf("Bands[amber] = %q, want %q", Bands["amber"], "over 8, up to 12")
 	}
 }
+
+func fns(craps ...float64) []facts.PageFunction {
+	out := []facts.PageFunction{}
+	for _, c := range craps {
+		c := c
+		out = append(out, facts.PageFunction{CRAP: &c})
+	}
+	return out
+}
+
+// One red module of one function sits among twenty tested ones: on its own it
+// is red, but the folder, taken together, is green.
+func TestFoldersPoolEveryMeasuredFunctionUnderThem(t *testing.T) {
+	ones := make([]float64, 19)
+	for i := range ones {
+		ones[i] = 1
+	}
+	modules := []facts.PageModule{
+		{Tree: []string{"a"}, Functions: fns(1)}, // the folder's own module joins its pool
+		{Tree: []string{"a", "x"}, Functions: fns(ones...)},
+		{Tree: []string{"a", "y"}, Functions: fns(20)},
+		{Tree: []string{"a", "b", "z"}, Functions: []facts.PageFunction{{Name: "unmeasured"}}},
+		{Tree: []string{"top"}, Functions: fns(5)},
+	}
+	got := Folders(modules)
+	a, ok := got["a"]
+	if !ok || a.Grade != facts.Green || a.Functions != 21 || a.Stats.Max != 20 || !near(a.Stats.Mu, 40.0/21) {
+		t.Fatalf("a = %+v %+v", a, a.Stats)
+	}
+	if _, ok := got["a/b"]; ok {
+		t.Fatal("a folder with nothing measured under it must be absent, so it stays unlit")
+	}
+	if len(got) != 1 {
+		t.Fatalf("only folders get a score, got %v", got)
+	}
+}

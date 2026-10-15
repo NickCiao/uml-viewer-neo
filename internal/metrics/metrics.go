@@ -1,11 +1,12 @@
 // Package metrics turns coverage into scores: CRAP for each function, and
-// for each module the mean, spread, worst and grade. The grade cut-offs live
+// for each module and folder the mean, spread, worst and grade. The grade cut-offs live
 // here and nowhere else.
 package metrics
 
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"uml-viewer-neo/internal/facts"
 )
@@ -143,4 +144,34 @@ func Score(scan facts.Scan, cov *Coverage) facts.Scores {
 		}
 	}
 	return scores
+}
+
+// Folders grades every folder from all the measured functions under it, so a
+// big folder's lamp says how much of its code is risky rather than taking
+// its one worst module. Unmeasured functions are left out of the pool.
+func Folders(modules []facts.PageModule) facts.Folders {
+	pools, folders := map[string][]float64{}, map[string]bool{}
+	for _, m := range modules {
+		var craps []float64
+		for _, f := range m.Functions {
+			if f.CRAP != nil {
+				craps = append(craps, *f.CRAP)
+			}
+		}
+		// Depth len(m.Tree) is the module's own path, which is a folder too
+		// when other modules sit under it (a Go package with sub-packages).
+		for depth := 1; depth <= len(m.Tree); depth++ {
+			key := strings.Join(m.Tree[:depth], "/")
+			pools[key] = append(pools[key], craps...)
+			folders[key] = folders[key] || depth < len(m.Tree)
+		}
+	}
+	out := facts.Folders{}
+	for key, craps := range pools {
+		if folders[key] && len(craps) > 0 {
+			stats := StatsOf(craps)
+			out[key] = facts.FolderScore{Grade: GradeOf(stats), Stats: stats, Functions: len(craps)}
+		}
+	}
+	return out
 }

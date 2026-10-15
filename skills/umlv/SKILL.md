@@ -34,6 +34,7 @@ umlv --metrics --no-open <repo>   # also runs the repo's tests with coverage: ca
 | `modules[].stats` | `mu`, `sigma`, `max` of the module's function CRAP scores; absent when unlit |
 | `modules[].functions[]` | `name`, `file`, `line`, `cc`, and when measured `coverage` (0 to 1) and `crap` |
 | `modules[].uses` | IDs of the modules it imports, and `lib:<name>` for libraries listed in the policy |
+| `folders` | Keyed by folder path (`"cart"`, `"internal/lang"`): `grade`, `stats` and `functions`, pooled over every measured function under the folder; absent when nothing under it was measured |
 | `coverageAt` | When the coverage report was written; absent means never measured |
 | `bands` | Each grade's cut-off on μ + σ, in words |
 | `notes` | Optional: what the scan left out (also on stderr as `umlv: note:`) |
@@ -61,7 +62,8 @@ jq -r '.modules[] | select(.grade == "unlit") | .id' "$D"
 - CRAP = CC² × (1 − coverage)³ + CC, where CC counts a function's branches. CRAP close to CC means
   tested but complex: split the function. CRAP far above CC means under-tested: write tests first.
 - A module's grade reads μ + σ of its functions' CRAP (cut-offs in `bands`), so one very bad
-  function can make a module red.
+  function can make a module red. A folder's grade pools all the functions under it, so a red
+  module can sit inside a green folder: look at the modules, not just the folders.
 - `unlit` means not measured: no coverage report yet, or none covers the module's files. It is not a
   bad grade. Say so when you report.
 - Grades are only as fresh as `coverageAt`. If the code changed since, re-run with `--metrics`.

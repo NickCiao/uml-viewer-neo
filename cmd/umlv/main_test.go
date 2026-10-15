@@ -268,6 +268,15 @@ func TestTheTutorialExampleLightsTheLampsTheTutorialDescribes(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("grades = %v, want %v", got, want)
 	}
+	// orders/ is green although checkout inside it is amber: its four
+	// functions, taken together, score 7.6.
+	folders := map[string]facts.Grade{}
+	for k, f := range p.Folders {
+		folders[k] = f.Grade
+	}
+	if want := map[string]facts.Grade{"cmd": facts.Green, "orders": facts.Green}; !reflect.DeepEqual(folders, want) {
+		t.Fatalf("folder grades = %v, want %v", folders, want)
+	}
 	if len(p.Libraries) != 1 || p.Libraries[0].Name != "github.com/BurntSushi/toml" {
 		t.Fatalf("libraries = %v", p.Libraries)
 	}

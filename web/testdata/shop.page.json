@@ -134,6 +134,17 @@
       ]
     }
   ],
+  "folders": {
+    "cart": {
+      "grade": "amber",
+      "stats": {
+        "mu": 6.5625,
+        "sigma": 2.4375,
+        "max": 9
+      },
+      "functions": 2
+    }
+  },
   "libraries": [
     {
       "id": "lib:zod",

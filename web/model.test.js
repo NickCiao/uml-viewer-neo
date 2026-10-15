@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { viewAt, worstGrade, shorten, folderExists, GEOMETRY } from './model.js';
+import { viewAt, shorten, folderExists, GEOMETRY } from './model.js';
 
 const page = JSON.parse(readFileSync(new URL('./testdata/shop.page.json', import.meta.url)));
 const box = (view, key) => view.boxes.find((b) => b.key === key);
@@ -12,14 +12,40 @@ test('the top level shows one box per top-level name, plus used libraries', () =
   assert.deepEqual(view.libraries.map((l) => l.key), ['lib:zod']);
 });
 
-test('a folder that is also a module is one box with its worst measured lamp', () => {
+test("a folder that is also a module is one box with its folder's pooled lamp", () => {
   const cart = box(viewAt(page, []), 'cart');
   assert.equal(cart.kind, 'both');
   assert.equal(cart.moduleId, 'src/cart/index.ts');
   assert.equal(cart.grade, 'amber');
+  assert.deepEqual(cart.pool, page.folders.cart);
+  assert.deepEqual(cart.worst, { label: 'basket', grade: 'amber', score: 9 });
   assert.equal(cart.label, 'cart/ ›');
   assert.equal(cart.detail, '2 modules · 1 measured');
   assert.equal(cart.stats, null);
+});
+
+// A pooled folder can be green with a red module inside: the box names the red
+// module count so the hotspot is not hidden; a red folder needs no such hint.
+const pooled = (folderGrade) => ({ ...page, libraries: [], folders: {
+  orders: { grade: folderGrade, stats: { mu: 4, sigma: 3.6, max: 13 }, functions: 4 } }, modules: [
+  { id: 'o/cart', tree: ['orders', 'cart'], name: 'cart', source: '', grade: 'green', stats: { mu: 2, sigma: 1, max: 3 }, functions: [], uses: [] },
+  { id: 'o/pay', tree: ['orders', 'pay'], name: 'pay', source: '', grade: 'red', stats: { mu: 13, sigma: 0, max: 13 }, functions: [], uses: [] },
+  { id: 'o/x', tree: ['orders', 'x', 'y'], name: 'y', source: '', grade: 'unlit', functions: [], uses: [] },
+] });
+
+test('a folder takes its grade from the page data, not its worst module', () => {
+  const orders = box(viewAt(pooled('green'), []), 'orders');
+  assert.equal(orders.grade, 'green');
+  assert.deepEqual(orders.worst, { label: 'pay', grade: 'red', score: 13 });
+  assert.equal(orders.detail, '3 modules · 2 measured · 1 red');
+  assert.equal(box(viewAt(pooled('red'), []), 'orders').detail, '3 modules · 2 measured');
+});
+
+test('a folder with no data is unlit and names no worst module', () => {
+  const orders = box(viewAt({ ...pooled('green'), folders: {} }, ['orders']), 'orders/x');
+  assert.equal(orders.grade, 'unlit');
+  assert.equal(orders.worst, null);
+  assert.equal(orders.pool, null);
 });
 
 test('a folder holding one module says so in the singular', () => {
@@ -60,13 +86,6 @@ test('an import cycle gives an arrow each way', () => {
     { id: 'a', tree: ['a'], grade: 'unlit', uses: ['b'], functions: [] },
     { id: 'b', tree: ['b'], grade: 'unlit', uses: ['a'], functions: [] }] };
   assert.deepEqual(viewAt(cycle, []).arrows.map((x) => x.from + x.to).sort(), ['ab', 'ba']);
-});
-
-test('worstGrade ignores unlit unless nothing is lit', () => {
-  assert.equal(worstGrade(['unlit', 'green']), 'green');
-  assert.equal(worstGrade(['green', 'red', 'amber']), 'red');
-  assert.equal(worstGrade(['unlit']), 'unlit');
-  assert.equal(worstGrade([]), 'unlit');
 });
 
 test('shorten keeps both ends of a long name', () => {

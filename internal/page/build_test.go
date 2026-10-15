@@ -105,6 +105,17 @@ func TestBuildCarriesScoresAndLeavesUnmeasuredModulesUnlit(t *testing.T) {
 	}
 }
 
+func TestBuildGradesEveryFolder(t *testing.T) {
+	p := Build(shopScan(), shopScores(), shopOptions())
+	cart, ok := p.Folders["cart"]
+	if !ok || cart.Grade != facts.Amber || cart.Functions != 2 || cart.Stats.Max != 9 {
+		t.Fatalf("folders = %+v", p.Folders)
+	}
+	if len(p.Folders) != 1 {
+		t.Fatalf("only cart/ is a folder, got %v", p.Folders)
+	}
+}
+
 func TestLibraryCoversSubPackages(t *testing.T) {
 	cases := []struct {
 		imp  facts.Import

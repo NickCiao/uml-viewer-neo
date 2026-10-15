@@ -101,6 +101,7 @@ type Page struct {
 	EditorPrefix string            `json:"editorPrefix"`
 	Bands        map[string]string `json:"bands,omitempty"`
 	Modules      []PageModule      `json:"modules"`
+	Folders      Folders           `json:"folders"`
 	Libraries    []Library         `json:"libraries"`
 	Notes        []string          `json:"notes,omitempty"`
 }
@@ -128,6 +129,18 @@ type PageFunction struct {
 	Coverage *float64 `json:"coverage,omitempty"`
 	CRAP     *float64 `json:"crap,omitempty"`
 }
+
+// FolderScore is a folder's grade, pooled over every measured function under
+// it, its own module's included. Functions counts that pool.
+type FolderScore struct {
+	Grade     Grade  `json:"grade"`
+	Stats     *Stats `json:"stats"`
+	Functions int    `json:"functions"`
+}
+
+// Folders is keyed by folder path ("orders", "orders/cart"). A folder
+// missing from it has nothing measured under it and is unlit.
+type Folders map[string]FolderScore
 
 // Library is an outside library drawn as an oval.
 type Library struct {

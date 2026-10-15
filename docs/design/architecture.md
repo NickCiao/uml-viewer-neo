@@ -12,8 +12,8 @@ A few words carry the rest of this doc:
 - A **box** is one module or folder at the level you are looking at. Folder
   boxes read `name/ ›` and say how many modules they hold.
 - An **arrow** from one box to another means the first imports the second.
-- A **lamp** on each box grades how risky its code is to change, from its
-  CRAP score (see [Metrics](#metrics)). An unlit lamp means "not measured".
+- A **lamp** on each box grades how risky its code is to change, from the
+  CRAP scores of the functions in it (see [Metrics](#metrics)). An unlit lamp means "not measured".
 - A **card** is the side panel that opens when you click a box: its
   functions, their scores, and what it uses and is used by.
 
@@ -86,9 +86,8 @@ their folders, merges arrows, lays the boxes out and draws them.
 
 Folding happens in the page because drill-down is interactive: the page
 needs the whole tree to open any folder without asking anything else.
-Grading happens in Go, because the thresholds must live in one language and
-the self-check runs there. The page only has to pick the worst grade under a
-folder, which needs no thresholds.
+Grading happens in Go, folders included, because the thresholds must live in
+one language and the self-check runs there.
 
 There is no server. A page opened from disk cannot read other files, so the
 facts are embedded in the page itself. The one thing a server would add is
@@ -111,7 +110,8 @@ when the repo was scanned and when coverage last ran.
 
 Each **box** shows its lamp and its name. Long names are shortened in the
 middle and shown in full on hover and in the card. A folder box reads
-`name/ ›`, with a dim second line such as "9 modules · 6 measured". A folder
+`name/ ›`, with a dim second line such as "9 modules · 6 measured", which
+adds "· 1 red" when a red module sits inside a folder whose lamp is not red. A folder
 that is also a module (a Go package with sub-packages, a TypeScript
 `index.ts`) is one box with both. Two **badges** count a box's partners: "used
 by" on its top edge and "uses" on its bottom edge, written `3+2` for three
@@ -140,9 +140,11 @@ A module's **card** starts with its path, as a link that opens it in your
 editor, and the number its lamp is judged on, spelled out: "Grade: amber (μ
 + σ = 9.4; amber is 8 to 12)". Below that come its CRAP mean, spread and
 worst, and a table of its functions with CRAP, CC and coverage, sorted worst
-first with the worst row marked. A folder's card shows its lamp, how many of
-its modules were measured, its children, and an Open link. Both list what
-the box uses and what uses it. The card opens over the right of the stage,
+first with the worst row marked. A folder's card shows its grade spelled out
+the same way, its worst module, how many of its modules were measured, its
+children, and an Open link; a box that is both labels its module's grade
+"This module" to keep the two apart. Both list what the box uses and what
+uses it. The card opens over the right of the stage,
 so selecting a box never re-lays-out the diagram; while it is open, the
 fitted view is centred in the width the card leaves, so the box's partners
 are not hidden behind it. A zoomed or panned view is left where it is.
@@ -175,7 +177,7 @@ A module's functions are summarised by mean (μ), spread (σ, the standard
 deviation) and worst (max). Its grade reads μ + σ, so one very bad function
 darkens a module whose average looks fine.
 
-| Lamp | μ + σ of the module's CRAP |
+| Lamp | μ + σ of the CRAP of the module's functions, or the folder's |
 |---|---|
 | Green: low risk | 8 or less |
 | Amber: medium risk | over 8, up to 12 |
@@ -185,10 +187,18 @@ darkens a module whose average looks fine.
 The cut-offs come from the fork, which took them from unclebob's tool; we
 revisit them once `umlv` has numbers of its own.
 
-A folder's lamp shows the worst **measured** module under it, and is unlit
-only when nothing under it was measured, so an unmeasured module never
-passes for a bad one. The folder's card says how many of its modules were
-measured ("6 of 9 measured"), so an unmeasured module cannot hide either.
+A folder's lamp pools every **measured** function under it, its own
+module's included, and reads μ + σ of that pool against the same cut-offs.
+Taking the worst module instead, as the fork first did, turns nearly every
+top-level folder red in a big repo, so the top level says nothing. Pooling
+dilutes a small hotspot, so the box's second line counts red modules inside
+a folder that is not red, and the card names the worst module.
+
+Unmeasured functions stay out of the pool, unlike upstream, which counts
+them as red: an unmeasured module never passes for a bad one. A folder is
+unlit only when nothing under it was measured, and its card says how many
+of its modules were ("6 of 9 measured"), so an unmeasured module cannot hide
+either.
 
 `--metrics` runs the repo's own test tools (see [Languages](#languages)).
 Without it, `umlv` reuses the coverage report from the last run if there is
@@ -207,6 +217,7 @@ one, and the header shows when that report was written.
 | Policy file | TOML | Comments and hand editing; one small dependency. |
 | Output folder | `.umlv/` in the scanned repo | One folder to ignore: the policy, `index.html`, `data.json`, raw reports. The fork's `.uml-viewer/` is left alone. |
 | Fonts | The system's monospaced font | Nothing to embed or license; a fixed-width font also lets layout size boxes from character counts. |
+| Folder grade | Pooled over the functions under it; unmeasured ones left out | Worst-module grades saturate to red in big repos; upstream pools too but counts missing data as red. |
 | One mark per box | A single lamp (C) in version 1 | A permanently dark second lamp for mutation would read as broken; it arrives with mutation testing. |
 
 ## Contracts
@@ -246,8 +257,8 @@ needs to know which tool ran.
 ### Page data: CLI to page
 
 The CLI embeds one JSON document in the page: when the repo was scanned and
-measured, and the scan facts with each function's scores and each module's
-grade filled in. Policy is resolved before embedding (libraries are marked,
+measured, the scan facts with each function's scores and each module's
+grade filled in, and each folder's pooled grade. Policy is resolved before embedding (libraries are marked,
 the editor becomes a link prefix), so the page knows nothing about policy.
 One Go type owns this shape; `model.js` and `render.js` are its only readers. The same
 document is also written to `.umlv/data.json`, so agents and scripts can
@@ -336,9 +347,9 @@ arrow is 1.5px, the selection border 2px, and a lamp 10px across.
 | `internal/lang/golang` | The Go scanner, inside the binary; the cover-profile reader | `lang`, `facts`, `metrics` |
 | `internal/lang/typescript` | `tsscan.js` and a pinned TypeScript compiler, embedded; the istanbul reader | `lang`, `facts`, `metrics` |
 | `internal/lang/python` | `pyscan.py`, embedded; the coverage.py reader | `lang`, `facts`, `metrics` |
-| `internal/metrics` | Coverage units, running a command, CRAP, module stats and grades | `facts` |
+| `internal/metrics` | Coverage units, running a command, CRAP, module and folder stats and grades | `facts` |
 | `internal/policy` | Read, default, write and apply the policy | `facts` |
-| `internal/page` | Build the page data, bundle the page code, write `index.html` | `facts`, `web` |
+| `internal/page` | Build the page data, bundle the page code, write `index.html` | `facts`, `metrics`, `web` |
 | `web` | The page's files, embedded for `page` | nothing |
 
 Packages return errors and warnings and never print or exit; `cmd/umlv`
@@ -349,7 +360,7 @@ The page's code follows the same one-way rule:
 
 | File | Job | Depends on |
 |---|---|---|
-| `model.js` | Page data and a folder in; boxes, merged arrows, badge counts, folder lamps and box sizes out | nothing |
+| `model.js` | Page data and a folder in; boxes, merged arrows, badge counts, folder hotspots and box sizes out | nothing |
 | `layout.js` | Boxes and arrows in; positions and arrow routes out, via ELK.js (asynchronous) | ELK.js |
 | `render.js` | Positions in; SVG for the diagram and HTML for the header and card out | `model.js` |
 | `app.js` | Events, state and the URL fragment; calls the others | all of the above |

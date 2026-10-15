@@ -115,12 +115,29 @@ test('a module card spells out its grade and lists functions worst first', () =>
   assert.ok(html.includes('href="vscode://file/repo/src/checkout.ts:9"'));
 });
 
-test('a folder card counts what was measured and offers Open', () => {
+test('a folder card spells out its pooled grade, worst module and what was measured, and offers Open', () => {
   const html = renderCard(page, top, 'cart');
   assert.ok(html.includes('lamp-dot lamp-amber'));
-  assert.ok(html.includes('1 of 2 measured'));
+  assert.ok(html.includes('This module: not measured'));
+  assert.ok(html.includes('Grade: amber (μ + σ = 9.0 over all 2 measured functions inside; amber is over 8, up to 12)'));
+  assert.ok(html.includes('CRAP mean 6.6 · spread 2.4 · worst 9.0'));
+  assert.ok(html.includes('Worst module: basket, amber (μ + σ = 9.0)'));
+  assert.ok(html.includes('1 of 2 modules measured; the grade covers only those'));
   assert.ok(html.includes('data-open="cart"'));
   assert.ok(html.includes('basket'));
+});
+
+test('a fully measured folder just counts, and an unmeasured one says so', () => {
+  const all = structuredClone(page);
+  all.modules.find((m) => m.id === 'src/cart/index.ts').grade = 'green';
+  assert.ok(renderCard(all, viewAt(all, []), 'cart').includes('<p>2 of 2 measured</p>'));
+  const none = { ...page, folders: {} };
+  assert.ok(renderCard(none, viewAt(none, []), 'cart').includes('Grade: not measured'));
+});
+
+test('a folder lamp says it pools every function inside', () => {
+  const svg = renderDiagram(top, fakePos(top), on);
+  assert.ok(svg.includes('<title>All functions inside, taken together: amber (μ + σ = 9.0)</title>'));
 });
 
 test('source links encode spaces', () => {

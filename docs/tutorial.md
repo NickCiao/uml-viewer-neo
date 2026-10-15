@@ -65,8 +65,13 @@ amber up to 12, and red above 12 (you can change the thresholds if you disagree 
 a matter of opinion). `report` has a small tested `Takings` function that scores 2 but the module 
 is red anyway because of `Daily`.
 
-A folder's lamp shows the _**worst**_ module inside it (this project has a conservative disposition). 
-`orders/` is amber because of `checkout`, even though `cart` is green.
+A folder's lamp takes every function inside it together and grades them the same way. `orders/`
+is green: its four functions come to 7.6, even though `checkout` on its own is amber. This way one
+small risky module doesn't turn a big folder red, and the top-level lamps show where most of the
+risk actually is. So that hotspots can't hide, a folder's card names its worst module, and if a
+red module sits inside a folder that isn't red, the box's second line says so (`· 1 red`).
+
+![The orders folder's card, naming checkout as its worst module](tutorial/orders-card.png)
 
 If a lamp stays dark after `--metrics`, the coverage report didn't include that code, probably because
 there aren't any tests that load it.

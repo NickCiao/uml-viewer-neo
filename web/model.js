@@ -1,16 +1,21 @@
 // model.js: page data and a folder in; boxes, merged arrows, badge counts,
-// folder lamps and box sizes out. No DOM and no layout here.
-
-const ORDER = ['unlit', 'green', 'amber', 'red'];
+// folder hotspots and box sizes out. No DOM and no layout here. Grades,
+// folders' included, come from the page data.
 
 // Box geometry in pixels, shared with render.js. Text is monospaced, so a
 // box's width follows from its character count.
 export const GEOMETRY = { padX: 12, padY: 10, line: 18, lamp: 10, gap: 8, nameW: 7.8, detailW: 7.2, libH: 28, libPad: 16 };
 
-export function worstGrade(grades) {
-  let worst = 'unlit';
-  for (const g of grades) if (ORDER.indexOf(g) > ORDER.indexOf(worst)) worst = g;
-  return worst;
+const score = (m) => m.stats.mu + m.stats.sigma;
+
+// The measured module under a folder with the highest μ + σ, named by its
+// path inside the folder, so the card can say where the risk is.
+function worstModule(members, key) {
+  const measured = members.filter((m) => m.stats);
+  if (measured.length === 0) return null;
+  const m = measured.reduce((a, b) => (score(b) > score(a) ? b : a));
+  const depth = key.split('/').length;
+  return { label: m.tree.slice(depth).join('/') || m.name, grade: m.grade, score: score(m) };
 }
 
 export function shorten(name, max = 24) {
@@ -93,17 +98,23 @@ export function viewAt(page, folder) {
 
   const counts = { red: 0, amber: 0, green: 0, unlit: 0 };
   const list = [...boxes.values()].sort((a, b) => a.key.localeCompare(b.key)).map((b) => {
-    const grades = b.members.map((m) => m.grade);
-    const measured = grades.filter((g) => g !== 'unlit').length;
+    const measured = b.members.filter((m) => m.grade !== 'unlit').length;
+    const pool = b.folder ? (page.folders || {})[b.key] || null : null;
+    const grade = b.folder ? (pool ? pool.grade : 'unlit') : b.module.grade;
+    // A folder's lamp pools its functions, so a red module inside a calmer
+    // folder is named on the box rather than hidden by the average.
+    const red = b.members.filter((m) => m.grade === 'red').length;
     const label = shorten(b.name) + (b.folder ? '/ ›' : '');
     const n = b.members.length;
-    const detail = b.folder ? `${n} module${n === 1 ? '' : 's'} · ${measured} measured` : '';
-    const grade = worstGrade(grades);
+    const detail = b.folder
+      ? `${n} module${n === 1 ? '' : 's'} · ${measured} measured` + (red && grade !== 'red' ? ` · ${red} red` : '')
+      : '';
     counts[grade] += 1;
     return {
       key: b.key, name: b.name, kind: b.folder ? (b.module ? 'both' : 'folder') : 'module',
       label, detail, moduleId: b.module ? b.module.id : null, grade,
       stats: b.module && !b.folder ? b.module.stats || null : null,
+      pool, worst: b.folder ? worstModule(b.members, b.key) : null,
       modules: b.members.length, measured,
       uses: { on: [...b.uses.on].sort(), off: [...b.uses.off].sort() },
       usedBy: { on: [...b.usedBy.on].sort(), off: [...b.usedBy.off].sort() },

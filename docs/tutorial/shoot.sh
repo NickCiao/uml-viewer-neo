@@ -22,3 +22,4 @@ shot unmeasured "file://$TMP/bakery/.umlv/index.html" 600
 shot measured "$PAGE" 600
 shot orders "$PAGE#f=orders" 340
 shot card "$PAGE#s=report" 600
+shot orders-card "$PAGE#s=orders" 600

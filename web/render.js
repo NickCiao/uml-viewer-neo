@@ -74,8 +74,8 @@ export function renderDiagram(view, pos, ui) {
 
 function lampText(b) {
   if (b.grade === 'unlit') return 'Not measured';
-  if (b.stats) return `Grade: ${b.grade} (μ + σ = ${fmt(b.stats.mu + b.stats.sigma)})`;
-  return `Worst measured: ${b.grade} (${b.measured} of ${b.modules} measured)`;
+  if (b.pool) return `All functions inside, taken together: ${b.grade} (μ + σ = ${fmt(b.pool.stats.mu + b.pool.stats.sigma)})`;
+  return `Grade: ${b.grade} (μ + σ = ${fmt(b.stats.mu + b.stats.sigma)})`;
 }
 
 function partnerNames(side) {
@@ -119,19 +119,23 @@ export function renderCard(page, view, key) {
   if (!b) return '';
   const m = b.moduleId ? page.modules.find((x) => x.id === b.moduleId) : null;
   let html = `<h2><span class="lamp-dot lamp-${b.grade}"></span>${esc(b.name)}${b.kind === 'module' ? '' : '/'}</h2>`;
-  if (m) html += moduleSection(page, m);
+  if (m) html += moduleSection(page, m, b.kind === 'both' ? 'This module' : 'Grade');
   if (b.kind !== 'module') html += folderSection(page, b);
   return html + partners('Uses', b.uses) + partners('Used by', b.usedBy);
 }
 
 const link = (page, path, line) => esc(page.editorPrefix + encodeURI(path) + (line ? `:${line}` : ''));
 
-function moduleSection(page, m) {
+const statsLine = (s) => `<p class="stats">CRAP mean ${fmt(s.mu)} · spread ${fmt(s.sigma)} · worst ${fmt(s.max)}</p>`;
+
+// A box that is both a module and a folder has two grades, so the module's is
+// labelled "This module" to keep it apart from the folder's.
+function moduleSection(page, m, title) {
   let html = `<a class="path" href="${link(page, m.source)}">${esc(m.source || '.')}</a>`;
-  if (!m.stats) return html + '<p>Grade: not measured</p>';
+  if (!m.stats) return html + `<p>${title}: not measured</p>`;
   const band = (page.bands || {})[m.grade] || '';
-  html += `<p>Grade: ${m.grade} (μ + σ = ${fmt(m.stats.mu + m.stats.sigma)}; ${m.grade} is ${esc(band)})</p>`;
-  html += `<p class="stats">CRAP mean ${fmt(m.stats.mu)} · spread ${fmt(m.stats.sigma)} · worst ${fmt(m.stats.max)}</p>`;
+  html += `<p>${title}: ${m.grade} (μ + σ = ${fmt(m.stats.mu + m.stats.sigma)}; ${m.grade} is ${esc(band)})</p>`;
+  html += statsLine(m.stats);
   const fns = [...m.functions].sort((a, b) => (b.crap ?? -1) - (a.crap ?? -1));
   const rows = fns.map((f, i) =>
     `<tr${i === 0 && f.crap != null ? ' class="worst"' : ''}>` +
@@ -145,7 +149,18 @@ function moduleSection(page, m) {
 function folderSection(page, b) {
   const children = viewAt(page, b.key.split('/')).boxes.filter((c) => c.key !== b.key);
   const items = children.map((c) => `<li><span class="lamp-dot lamp-${c.grade}"></span>${esc(c.label)}</li>`).join('');
-  return `<p>${b.measured} of ${b.modules} measured</p><button data-open="${esc(b.key)}">Open</button>` +
+  let html = '<p>Grade: not measured</p>';
+  if (b.pool) {
+    const s = b.pool.stats;
+    const band = (page.bands || {})[b.grade] || '';
+    html = `<p>Grade: ${b.grade} (μ + σ = ${fmt(s.mu + s.sigma)} over all ${b.pool.functions} measured functions inside; ` +
+      `${b.grade} is ${esc(band)})</p>` + statsLine(s);
+  }
+  if (b.worst) html += `<p>Worst module: ${esc(b.worst.label)}, ${b.worst.grade} (μ + σ = ${fmt(b.worst.score)})</p>`;
+  html += b.measured === b.modules
+    ? `<p>${b.measured} of ${b.modules} measured</p>`
+    : `<p>${b.measured} of ${b.modules} modules measured; the grade covers only those</p>`;
+  return html + `<button data-open="${esc(b.key)}">Open</button>` +
     `<h3>Contents</h3><ul>${items}</ul>`;
 }
 
