@@ -116,7 +116,8 @@ func GradeOf(s *facts.Stats) facts.Grade {
 }
 
 // Score measures every function whose file is in the report. A module with
-// no measured function is left out, which leaves its lamp unlit.
+// no measured function is left out, which leaves its lamp unlit; a module
+// with no functions at all has nothing to cover, so it is green with no stats.
 func Score(scan facts.Scan, cov *Coverage) facts.Scores {
 	scores := facts.Scores{}
 	if cov == nil {
@@ -127,6 +128,10 @@ func Score(scan facts.Scan, cov *Coverage) facts.Scores {
 		byFile[u.File] = append(byFile[u.File], u)
 	}
 	for _, m := range scan.Modules {
+		if len(m.Functions) == 0 {
+			scores[m.ID] = facts.ModuleScore{Grade: facts.Green, Functions: map[string]facts.FunctionScore{}}
+			continue
+		}
 		fns := map[string]facts.FunctionScore{}
 		var craps []float64
 		for _, f := range m.Functions {

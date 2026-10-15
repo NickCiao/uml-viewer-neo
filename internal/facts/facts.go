@@ -81,8 +81,9 @@ type FunctionScore struct {
 	CRAP     float64
 }
 
-// ModuleScore is one module with at least one measured function. Functions
-// is keyed by function name; a function missing from it was not measured.
+// ModuleScore is one module with at least one measured function, or with no
+// functions at all (Stats is then nil). Functions is keyed by function name;
+// a function missing from it was not measured.
 type ModuleScore struct {
 	Grade     Grade
 	Stats     *Stats

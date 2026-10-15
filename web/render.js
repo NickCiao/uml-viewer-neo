@@ -75,6 +75,7 @@ export function renderDiagram(view, pos, ui) {
 function lampText(b) {
   if (b.grade === 'unlit') return 'Not measured';
   if (b.pool) return `All functions inside, taken together: ${b.grade} (μ + σ = ${fmt(b.pool.stats.mu + b.pool.stats.sigma)})`;
+  if (!b.stats) return `Grade: ${b.grade} (no functions to score)`;
   return `Grade: ${b.grade} (μ + σ = ${fmt(b.stats.mu + b.stats.sigma)})`;
 }
 
@@ -132,7 +133,8 @@ const statsLine = (s) => `<p class="stats">CRAP mean ${fmt(s.mu)} · spread ${fm
 // labelled "This module" to keep it apart from the folder's.
 function moduleSection(page, m, title) {
   let html = `<a class="path" href="${link(page, m.source)}">${esc(m.source || '.')}</a>`;
-  if (!m.stats) return html + `<p>${title}: not measured</p>`;
+  if (m.grade === 'unlit') return html + `<p>${title}: not measured</p>`;
+  if (!m.stats) return html + `<p>${title}: ${m.grade} (no functions to score)</p>`;
   const band = (page.bands || {})[m.grade] || '';
   html += `<p>${title}: ${m.grade} (μ + σ = ${fmt(m.stats.mu + m.stats.sigma)}; ${m.grade} is ${esc(band)})</p>`;
   html += statsLine(m.stats);

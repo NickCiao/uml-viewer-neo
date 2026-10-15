@@ -109,6 +109,20 @@ func TestScoreLeavesFilesOutsideTheReportUnmeasured(t *testing.T) {
 	}
 }
 
+// A package of only types has nothing to cover, as a function with no
+// statements has nothing to cover: once coverage has run it is green, with no
+// stats, rather than unlit and counted as a gap in the tests.
+func TestScoreGradesAModuleWithNoFunctionsGreen(t *testing.T) {
+	scan := facts.Scan{Modules: []facts.Module{{ID: "types"}}}
+	got, ok := Score(scan, &Coverage{Files: map[string]bool{}})["types"]
+	if !ok || got.Grade != facts.Green || got.Stats != nil {
+		t.Fatalf("types = %+v, %v", got, ok)
+	}
+	if len(Score(scan, nil)) != 0 {
+		t.Fatal("before any coverage it stays unlit like everything else")
+	}
+}
+
 func TestBandsDescribeTheCutoffs(t *testing.T) {
 	if !strings.Contains(Bands["green"], "8") || !strings.Contains(Bands["amber"], "12") || !strings.Contains(Bands["red"], "12") {
 		t.Fatalf("bands = %v", Bands)

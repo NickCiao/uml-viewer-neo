@@ -140,6 +140,14 @@ test('a folder lamp says it pools every function inside', () => {
   assert.ok(svg.includes('<title>All functions inside, taken together: amber (μ + σ = 9.0)</title>'));
 });
 
+test('a module with no functions says it has none to score, on its card and its lamp', () => {
+  const empty = structuredClone(page);
+  empty.modules.find((m) => m.id === 'src/cart/index.ts').grade = 'green';
+  const inside = viewAt(empty, ['cart']);
+  assert.ok(renderCard(empty, inside, 'cart').includes('<p>Grade: green (no functions to score)</p>'));
+  assert.ok(renderDiagram(inside, fakePos(inside), on).includes('<title>Grade: green (no functions to score)</title>'));
+});
+
 test('source links encode spaces', () => {
   const spaced = structuredClone(page);
   spaced.modules.find((m) => m.id === 'src/pricing.ts').source = 'src/my file.ts';

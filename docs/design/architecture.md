@@ -165,13 +165,14 @@ scores its CC; an untested complex one scores far higher.
 **Coverage** counts only what runs inside a function's body. A `def` line,
 or the `const f =` of a one-line arrow function, runs when the file is
 imported and would credit a function nobody called; this is why the
-scanners report where each body starts, down to the column. Two edge cases
-the fork got wrong:
+scanners report where each body starts, down to the column. Three edge
+cases the fork got wrong:
 
 | Case | Treated as |
 |---|---|
 | The module's file is absent from the coverage report | Not measured, not 100% covered |
 | The function has no statements to cover | Covered |
+| The module has no functions (only types or constants) | Green once coverage has run, with "no functions to score", so it never reads as a gap in the tests |
 
 A module's functions are summarised by mean (μ), spread (σ, the standard
 deviation) and worst (max). Its grade reads μ + σ, so one very bad function
@@ -182,7 +183,7 @@ darkens a module whose average looks fine.
 | Green: low risk | 8 or less |
 | Amber: medium risk | over 8, up to 12 |
 | Red: high risk | over 12 |
-| Unlit: not measured | no function measured |
+| Unlit: not measured | none of its functions measured |
 
 The cut-offs come from the fork, which took them from unclebob's tool; we
 revisit them once `umlv` has numbers of its own.
