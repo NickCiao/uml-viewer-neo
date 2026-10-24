@@ -18,7 +18,8 @@ type Import struct {
 
 // Function is one function or method. CoverStart and CoverCol, when set, are
 // where its body starts: coverage before that point belongs to the
-// declaration, not the body.
+// declaration, not the body. Exported means code outside its module can
+// call it by name.
 type Function struct {
 	Name       string `json:"name"`
 	File       string `json:"file"`
@@ -27,6 +28,7 @@ type Function struct {
 	CoverStart int    `json:"cover_start,omitempty"`
 	CoverCol   int    `json:"cover_col,omitempty"`
 	CC         int    `json:"cc"`
+	Exported   bool   `json:"exported,omitempty"`
 }
 
 // Module is the unit a language imports. ID is what imports point at; Path
@@ -135,6 +137,7 @@ type PageFunction struct {
 	Name     string   `json:"name"`
 	File     string   `json:"file"`
 	Line     int      `json:"line"`
+	Exported bool     `json:"exported"`
 	CC       int      `json:"cc"`
 	Coverage *float64 `json:"coverage,omitempty"`
 	CRAP     *float64 `json:"crap,omitempty"`

@@ -132,6 +132,24 @@ func parseFunc(t *testing.T, decls string) *ast.FuncDecl {
 	return f.Decls[len(f.Decls)-1].(*ast.FuncDecl)
 }
 
+func TestExportedNeedsAnExportedNameAndForAMethodAnExportedType(t *testing.T) {
+	for decls, want := range map[string]bool{
+		"func Run() {}":                                true,
+		"func run() {}":                                false,
+		"type S struct{}\nfunc (S) Do() {}":            true,
+		"type S struct{}\nfunc (S) do() {}":            false,
+		"type s struct{}\nfunc (*s) Do() {}":           false,
+		"type S[T any] struct{}\nfunc (*S[T]) Do() {}": true,
+	} {
+		if got := exported(parseFunc(t, decls)); got != want {
+			t.Errorf("%q: exported = %v, want %v", decls, got, want)
+		}
+	}
+	if !scanShop(t)["github.com/acme/shop"].Functions[0].Exported {
+		t.Fatal("Run is not exported")
+	}
+}
+
 func TestComplexityCountsEachDecisionPoint(t *testing.T) {
 	for _, c := range []struct {
 		body string

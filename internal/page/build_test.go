@@ -26,17 +26,17 @@ func shopScan() facts.Scan {
 			Imports: []facts.Import{project("src/cart/basket.ts"), project("src/pricing.ts"),
 				{To: "zod", Module: "zod"}, {To: "node:fs", Std: true, Module: "node:fs"}, {To: "left-pad", Module: "left-pad"}},
 			Functions: []facts.Function{
-				{Name: "run", File: "src/checkout.ts", Start: 9, End: 17, CC: 5},
+				{Name: "run", File: "src/checkout.ts", Start: 9, End: 17, CC: 5, Exported: true},
 				{Name: "neverCalled", File: "src/checkout.ts", Start: 19, End: 19, CC: 1}}},
 		{ID: "src/pricing.ts", Path: "pricing", Name: "pricing", File: "src/pricing.ts",
 			Imports:   []facts.Import{project("src/cart/basket.ts")},
-			Functions: []facts.Function{{Name: "total", File: "src/pricing.ts", Start: 3, End: 5, CC: 1}}},
+			Functions: []facts.Function{{Name: "total", File: "src/pricing.ts", Start: 3, End: 5, CC: 1, Exported: true}}},
 		{ID: "src/cart/index.ts", Path: "cart", Name: "cart", File: "src/cart/index.ts",
 			Imports: []facts.Import{project("src/cart/basket.ts")}},
 		{ID: "src/cart/basket.ts", Path: "cart/basket", Name: "basket", File: "src/cart/basket.ts",
 			Functions: []facts.Function{
-				{Name: "Basket.add", File: "src/cart/basket.ts", Start: 4, End: 6, CC: 3},
-				{Name: "Basket.full", File: "src/cart/basket.ts", Start: 8, End: 8, CC: 9}}},
+				{Name: "Basket.add", File: "src/cart/basket.ts", Start: 4, End: 6, CC: 3, Exported: true},
+				{Name: "Basket.full", File: "src/cart/basket.ts", Start: 8, End: 8, CC: 9, Exported: true}}},
 	}}
 }
 
@@ -96,8 +96,11 @@ func TestBuildCarriesScoresAndLeavesUnmeasuredModulesUnlit(t *testing.T) {
 		t.Fatalf("checkout = %+v", checkout)
 	}
 	run := checkout.Functions[0]
-	if run.Name != "run" || run.Line != 9 || run.CRAP == nil || *run.CRAP != 30 || run.Coverage == nil || *run.Coverage != 0 {
+	if run.Name != "run" || run.Line != 9 || !run.Exported || run.CRAP == nil || *run.CRAP != 30 || run.Coverage == nil || *run.Coverage != 0 {
 		t.Fatalf("run = %+v", run)
+	}
+	if checkout.Functions[1].Exported {
+		t.Fatalf("neverCalled = %+v", checkout.Functions[1])
 	}
 	cart := find(p, "src/cart/index.ts")
 	if cart.Grade != facts.Unlit || cart.Stats != nil {

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"os"
+	"path/filepath"
+	"reflect"
 	"testing"
 
 	"uml-viewer-neo/internal/facts"
@@ -52,6 +54,63 @@ func TestScanShopWithoutNodeModules(t *testing.T) {
 	total := byID["src/pricing.ts"].Functions[0]
 	if total.Start != 3 || total.CoverStart != 3 || total.CoverCol != 46 {
 		t.Fatalf("total = %+v", total)
+	}
+}
+
+func TestScanMarksWhatOtherModulesCanCall(t *testing.T) {
+	root := t.TempDir()
+	files := map[string]string{
+		"a.ts": `export function pub() {}
+function priv() {}
+export const arrow = () => 1;
+const inner = () => 2;
+function named() {}
+const alsoNamed = () => 3;
+export { named, alsoNamed as renamed };
+export class Shop {
+  constructor() {}
+  add() {}
+  private check() {}
+  protected guard() {}
+  #secret() {}
+  static make() { return new Shop(); }
+  static {}
+  [key: string]: unknown;
+}
+class Hidden { open() {} }
+export const api = { get() {}, ...{} };
+const local = { put() {} };
+export default function () {}
+`,
+		"b.js": "function one() {}\nfunction two() {}\nconst three = () => 3;\nfunction four() {}\n" +
+			"module.exports = { one, alias: two };\nexports.three = three;\n",
+		"c.ts": "function main() {}\nexport default main;\n",
+	}
+	for name, src := range files {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s, err := Scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, m := range s.Modules {
+		for _, f := range m.Functions {
+			got[m.ID+" "+f.Name] = f.Exported
+		}
+	}
+	want := map[string]bool{
+		"a.ts pub": true, "a.ts priv": false, "a.ts arrow": true, "a.ts inner": false,
+		"a.ts named": true, "a.ts alsoNamed": true, "a.ts Shop.constructor": true, "a.ts Shop.add": true,
+		"a.ts Shop.check": false, "a.ts Shop.guard": false, "a.ts Shop.#secret": false, "a.ts Shop.make": true,
+		"a.ts Hidden.open": false, "a.ts api.get": true, "a.ts local.put": false, "a.ts default": true,
+		"b.js one": true, "b.js two": true, "b.js three": true, "b.js four": false,
+		"c.ts main": true,
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("exported = %v", got)
 	}
 }
 

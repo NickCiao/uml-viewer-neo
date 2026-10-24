@@ -28,6 +28,7 @@
           "name": "Basket.add",
           "file": "src/cart/basket.ts",
           "line": 4,
+          "exported": true,
           "cc": 3,
           "coverage": 0.5,
           "crap": 4.125
@@ -36,6 +37,7 @@
           "name": "Basket.full",
           "file": "src/cart/basket.ts",
           "line": 8,
+          "exported": true,
           "cc": 9,
           "coverage": 1,
           "crap": 9
@@ -74,6 +76,7 @@
           "name": "run",
           "file": "src/checkout.ts",
           "line": 9,
+          "exported": true,
           "cc": 5,
           "coverage": 0,
           "crap": 30
@@ -82,6 +85,7 @@
           "name": "neverCalled",
           "file": "src/checkout.ts",
           "line": 19,
+          "exported": false,
           "cc": 1,
           "coverage": 0,
           "crap": 2
@@ -124,6 +128,7 @@
           "name": "total",
           "file": "src/pricing.ts",
           "line": 3,
+          "exported": true,
           "cc": 1,
           "coverage": 1,
           "crap": 1

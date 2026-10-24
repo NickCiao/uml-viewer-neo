@@ -1,6 +1,9 @@
 package python
 
 import (
+	"os"
+	"path/filepath"
+	"reflect"
 	"testing"
 
 	"uml-viewer-neo/internal/facts"
@@ -33,6 +36,39 @@ func TestScanShop(t *testing.T) {
 	run := checkout.Functions[0]
 	if run.Name != "run" || run.Start != 15 || run.End != 20 || run.CoverStart != 16 || run.CC != 3 {
 		t.Fatalf("run = %+v", run)
+	}
+}
+
+func TestScanMarksWhatOtherModulesAreMeantToCall(t *testing.T) {
+	root := t.TempDir()
+	files := map[string]string{
+		"pkg/__init__.py": "",
+		"pkg/mod.py": "def run(): pass\ndef _helper(): pass\n" +
+			"class Shop:\n    def __init__(self): pass\n    def add(self): pass\n" +
+			"    def _check(self): pass\n    def __mangled(self): pass\n" +
+			"class _Hidden:\n    def visible(self): pass\n",
+		"pkg/listed.py": "__all__ = [\"kept\"]\ndef kept(): pass\ndef dropped(): pass\n",
+	}
+	for name, src := range files {
+		os.MkdirAll(filepath.Join(root, filepath.Dir(name)), 0o755)
+		if err := os.WriteFile(filepath.Join(root, name), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s, err := Scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, m := range s.Modules {
+		for _, f := range m.Functions {
+			got[f.Name] = f.Exported
+		}
+	}
+	want := map[string]bool{"run": true, "_helper": false, "Shop.__init__": true, "Shop.add": true,
+		"Shop._check": false, "Shop.__mangled": false, "_Hidden.visible": false, "kept": true, "dropped": false}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("exported = %v", got)
 	}
 }
 
