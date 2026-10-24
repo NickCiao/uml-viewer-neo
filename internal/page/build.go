@@ -61,13 +61,9 @@ func Build(scan facts.Scan, scores facts.Scores, o Options) facts.Page {
 	return p
 }
 
-// tree is a module's folder path ending with its own name. The repo's root
-// module has an empty path and goes under its name.
+// tree is a module's folder path ending with its own name.
 func tree(m facts.Module) []string {
-	if m.Path == "" {
-		return []string{m.Name}
-	}
-	return strings.Split(m.Path, "/")
+	return strings.Split(m.Place(), "/")
 }
 
 func uses(m facts.Module, ids map[string]bool, libs []string, used map[string]bool) []string {

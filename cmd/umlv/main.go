@@ -107,12 +107,13 @@ func generate(o options, stderr io.Writer, now func() time.Time) (string, facts.
 	if err != nil {
 		return "", facts.Page{}, err
 	}
-	for _, n := range scan.Notes {
-		fmt.Fprintln(stderr, "umlv: note:", n)
-	}
 	pol, err := loadPolicy(o.root, scan)
 	if err != nil {
 		return "", facts.Page{}, err
+	}
+	scan = pol.OmitFrom(scan)
+	for _, n := range scan.Notes {
+		fmt.Fprintln(stderr, "umlv: note:", n)
 	}
 	scores, coverageAt := coverage(o, l, pol, scan, stderr)
 	p := page.Build(scan, scores, page.Options{

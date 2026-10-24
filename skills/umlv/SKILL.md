@@ -68,6 +68,8 @@ jq -r '.modules[] | select(.grade == "unlit") | .id' "$D"
   bad grade. Say so when you report.
 - Grades are only as fresh as `coverageAt`. If the code changed since, re-run with `--metrics`.
 - `uses` counts type-only imports too. Libraries appear only if listed in `.umlv/policy.toml`.
+- Folders and modules listed under `omit` in `.umlv/policy.toml` are absent from `data.json`
+  altogether, grades included; stderr says how many were left out.
 - Tests, vendored code and build output are not scanned.
 
 ## Showing a human

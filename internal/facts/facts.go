@@ -50,6 +50,15 @@ func (m Module) Source() string {
 	return m.Dir
 }
 
+// Place is the module's path in the folder tree. The repo's root module has
+// an empty Path and goes under its name.
+func (m Module) Place() string {
+	if m.Path == "" {
+		return m.Name
+	}
+	return m.Path
+}
+
 // Scan is everything one scanner reports about a repo.
 type Scan struct {
 	Lang    string   `json:"lang"`
