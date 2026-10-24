@@ -208,7 +208,7 @@ func functions(root string, p listed) []facts.Function {
 				Start:    fset.Position(fd.Pos()).Line,
 				End:      fset.Position(fd.End()).Line,
 				CC:       complexity(fd),
-				Exported: exported(fd),
+				Exported: exported(p.Name, fd),
 			})
 		}
 	}
@@ -223,12 +223,16 @@ func funcName(fd *ast.FuncDecl) string {
 }
 
 // exported is whether code outside the package can call fd by name: its
-// name is exported and, for a method, so is its receiver's type.
-func exported(fd *ast.FuncDecl) bool {
-	if fd.Recv == nil || len(fd.Recv.List) == 0 {
-		return fd.Name.IsExported()
+// name is exported and, for a method, so is its receiver's type. Nothing in
+// a main package is, since a main package cannot be imported.
+func exported(pkg string, fd *ast.FuncDecl) bool {
+	switch {
+	case pkg == "main" || !fd.Name.IsExported():
+		return false
+	case fd.Recv == nil || len(fd.Recv.List) == 0:
+		return true
 	}
-	return fd.Name.IsExported() && ast.IsExported(recvType(fd.Recv.List[0].Type))
+	return ast.IsExported(recvType(fd.Recv.List[0].Type))
 }
 
 func recvType(e ast.Expr) string {

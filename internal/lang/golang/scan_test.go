@@ -141,9 +141,12 @@ func TestExportedNeedsAnExportedNameAndForAMethodAnExportedType(t *testing.T) {
 		"type s struct{}\nfunc (*s) Do() {}":           false,
 		"type S[T any] struct{}\nfunc (*S[T]) Do() {}": true,
 	} {
-		if got := exported(parseFunc(t, decls)); got != want {
+		if got := exported("p", parseFunc(t, decls)); got != want {
 			t.Errorf("%q: exported = %v, want %v", decls, got, want)
 		}
+	}
+	if exported("main", parseFunc(t, "func Run() {}")) {
+		t.Fatal("a main package cannot be imported, so nothing in it is exported")
 	}
 	if !scanShop(t)["github.com/acme/shop"].Functions[0].Exported {
 		t.Fatal("Run is not exported")

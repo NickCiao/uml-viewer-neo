@@ -85,6 +85,9 @@ export default function () {}
 		"b.js": "function one() {}\nfunction two() {}\nconst three = () => 3;\nfunction four() {}\n" +
 			"module.exports = { one, alias: two };\nexports.three = three;\n",
 		"c.ts": "function main() {}\nexport default main;\n",
+		"d.js": "module.exports = class Exported { m() {} static s() {} };\nmodule.exports.Helper = class { h() {} };\n",
+		"e.ts": "export const Foo = class { m() {} private p() {} };\nconst Bar = class { m() {} };\n" +
+			"export default (class Named { n() {} });\nregister(class Arg { a() {} });\n",
 	}
 	for name, src := range files {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(src), 0o644); err != nil {
@@ -107,7 +110,9 @@ export default function () {}
 		"a.ts Shop.check": false, "a.ts Shop.guard": false, "a.ts Shop.#secret": false, "a.ts Shop.make": true,
 		"a.ts Hidden.open": false, "a.ts api.get": true, "a.ts local.put": false, "a.ts default": true,
 		"b.js one": true, "b.js two": true, "b.js three": true, "b.js four": false,
-		"c.ts main": true,
+		"c.ts main":       true,
+		"d.js Exported.m": true, "d.js Exported.s": true, "d.js default.h": true,
+		"e.ts Foo.m": true, "e.ts Foo.p": false, "e.ts Bar.m": false, "e.ts Named.n": true, "e.ts Arg.a": false,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("exported = %v", got)
