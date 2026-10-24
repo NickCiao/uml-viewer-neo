@@ -24,7 +24,7 @@ this later in the Lamps section).
 
 An arrow from A to B means A imports B, so A depends on B. `report → money` means the report code
 uses the money code. An arrow between two folder boxes means some module in the first folder
-imports some module in the second folder.
+imports some module in the second folder. Hover over it to see which modules those are.
 
 In terms of page orientation, dependencies are placed below the code that uses them so you should
 read from top to bottom. `cmd/`, where the program starts, is at the top, and `money`, which 

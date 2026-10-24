@@ -130,7 +130,7 @@ small, so the layout stays compact and does not move when arrows are hidden.
 | Double-click a folder, Enter, or Open on its card | Open the folder |
 | Esc | Close the card; press again to go up a level |
 | Click the breadcrumb | Go to that level |
-| Hover an arrow | Name the box it comes from and the box it points to |
+| Hover an arrow | Name the box it comes from and the box it points to; an arrow to or from a folder also lists the module imports it stands for, up to ten |
 | Arrows switch | Hide every arrow except the selected box's, so a crowded folder becomes a focus mode |
 | Wheel, drag | Pan |
 | ⌘ or Ctrl with the wheel, pinch | Zoom |

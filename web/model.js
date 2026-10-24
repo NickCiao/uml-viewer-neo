@@ -53,6 +53,9 @@ export function viewAt(page, folder) {
   // How a partner outside this folder is named: its top-level name, or at
   // depth n its first n segments.
   const outsideKey = (m) => keyOf(m.tree.slice(0, Math.max(1, depth)));
+  // How a module is named in the list of imports an arrow stands for: its
+  // path inside this folder, or for the folder's own module its name.
+  const inside = (m) => keyOf(m.tree.slice(depth)) || m.tree[m.tree.length - 1];
 
   const boxes = new Map();
   for (const m of page.modules) {
@@ -68,7 +71,13 @@ export function viewAt(page, folder) {
     else b.folder = true;
   }
 
+  // One arrow per pair of boxes, keeping the module imports it stands for.
   const arrows = new Map();
+  const arrow = (from, to, imp) => {
+    const key = `${from}\n${to}`;
+    if (!arrows.has(key)) arrows.set(key, { from, to, imports: [] });
+    arrows.get(key).imports.push(imp);
+  };
   const shownLibs = new Map();
   for (const m of page.modules) {
     const from = boxKey(m);
@@ -77,7 +86,7 @@ export function viewAt(page, folder) {
         if (from === null) continue;
         shownLibs.set(target, libs.get(target));
         boxes.get(from).uses.on.add(target);
-        arrows.set(`${from}\n${target}`, { from, to: target });
+        arrow(from, target, { from: inside(m), to: libs.get(target).name });
         continue;
       }
       const t = byId.get(target);
@@ -87,7 +96,7 @@ export function viewAt(page, folder) {
         if (from === to) continue;
         boxes.get(from).uses.on.add(to);
         boxes.get(to).usedBy.on.add(from);
-        arrows.set(`${from}\n${to}`, { from, to });
+        arrow(from, to, { from: inside(m), to: inside(t) });
       } else if (from !== null) {
         boxes.get(from).uses.off.add(outsideKey(t));
       } else if (to !== null) {
@@ -125,5 +134,7 @@ export function viewAt(page, folder) {
     key: l.id, id: l.id, name: l.name,
     width: Math.ceil(l.name.length * GEOMETRY.detailW + 2 * GEOMETRY.libPad), height: GEOMETRY.libH,
   }));
+  const byName = (a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to);
+  for (const a of arrows.values()) a.imports.sort(byName);
   return { folder: [...folder], boxes: list, libraries, arrows: [...arrows.values()], counts };
 }
