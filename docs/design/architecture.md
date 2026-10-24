@@ -243,16 +243,18 @@ makes a language pluggable. The facts must carry:
   (`github.com/spf13/pflag`, `@scope/pkg`), or the standard library.
   Type-only imports count.
 - **Methods and object-literal methods** as functions, named `Type.method`
-  or `object.method`; inside a TypeScript namespace, behind its name
-  (`N.f`).
+  or `object.method`. Everything inside a TypeScript namespace is named
+  behind it: `N.f`, and `A.B.f` for `namespace A.B`.
 - **Whether each function is exported**, so other modules can call it: in Go
   an exported name outside a main package, and for a method an exported type
   too; in TypeScript an `export`, a name in `export { }`, `export default`,
   `module.exports` or `exports.x`, or a public member of an exported class or
-  object, and in a namespace only when every namespace around it is exported;
-  in Python no leading underscore in any part of its name
-  (`__dunder__` methods count as public), and a listed name when the module
-  has `__all__`.
+  object. Inside a namespace it also needs every namespace around it to be
+  reachable: exported (by `export`, `export { N }`, `export =`,
+  `export default` or an `export import` alias), or at the top of a script,
+  a file with no import or export, whose namespaces are global. In Python,
+  no leading underscore in any part of its name (`__dunder__` methods count
+  as public), and a listed name when the module has `__all__`.
 - **Notes** for anything the scanner left out, such as Python scripts
   outside every package, so the CLI can say so.
 
