@@ -88,6 +88,15 @@ export default function () {}
 		"d.js": "module.exports = class Exported { m() {} static s() {} };\nmodule.exports.Helper = class { h() {} };\n",
 		"e.ts": "export const Foo = class { m() {} private p() {} };\nconst Bar = class { m() {} };\n" +
 			"export default (class Named { n() {} });\nregister(class Arg { a() {} });\n",
+		"n.ts": `export namespace Open { export function a() {} function b() {} }
+namespace Closed { export function c() {} export class K { k() {} } }
+export namespace Outer.Inner { export function d() {} }
+namespace Hidden.Inner { export function e() {} }
+export namespace Shell { export namespace Kept { export function g() {} } namespace Dropped { export function h() {} } }
+namespace Named { export function i() {} }
+export { Named };
+declare module "ambient" { export function j(): void; }
+`,
 	}
 	for name, src := range files {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(src), 0o644); err != nil {
@@ -113,6 +122,9 @@ export default function () {}
 		"c.ts main":       true,
 		"d.js Exported.m": true, "d.js Exported.s": true, "d.js default.h": true,
 		"e.ts Foo.m": true, "e.ts Foo.p": false, "e.ts Bar.m": false, "e.ts Named.n": true, "e.ts Arg.a": false,
+		"n.ts Open.a": true, "n.ts Open.b": false, "n.ts Closed.c": false, "n.ts Closed.K.k": false,
+		"n.ts Outer.Inner.d": true, "n.ts Hidden.Inner.e": false, "n.ts Shell.Kept.g": true,
+		"n.ts Shell.Dropped.h": false, "n.ts Named.i": true,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("exported = %v", got)

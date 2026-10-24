@@ -266,27 +266,37 @@ function main() {
       }
     }
 
-    (function visit(node, owner) {
+    // `open` is whether every namespace around a node is exported: a member of
+    // an unexported namespace stays inside the module, whatever its own `export`.
+    (function visit(node, owner, open) {
+      const exported = (n) => open && isExported(n);
+      if (node.kind === K.ModuleDeclaration) {
+        // `namespace A.B {}` nests B in A, and B is exported whenever A is.
+        const nested = (node.flags & ts.NodeFlags.NestedNamespace) !== 0;
+        const name = node.name.kind === K.Identifier ? [node.name.text] : []; // not `declare module "x"`
+        if (node.body) visit(node.body, [...owner, ...name], nested ? open : exported(node));
+        return;
+      }
       if (node.kind === K.FunctionDeclaration) {
-        record([...owner, nameOf(node) || 'default'].join('.'), node, isExported(node));
+        record([...owner, nameOf(node) || 'default'].join('.'), node, exported(node));
         return; // nested functions belong to their parent
       }
       if (node.kind === K.ClassDeclaration || node.kind === K.ClassExpression) {
-        const exported = node.kind === K.ClassDeclaration ? isExported(node) : isExportedValue(node);
-        recordMembers([...owner, nameOf(node) || 'default'], node.members, exported);
+        const classExported = node.kind === K.ClassDeclaration ? exported(node) : open && isExportedValue(node);
+        recordMembers([...owner, nameOf(node) || 'default'], node.members, classExported);
         return;
       }
       if (node.kind === K.VariableDeclaration && node.name.kind === K.Identifier) {
         if (isFn(node.initializer)) {
-          record([...owner, node.name.text].join('.'), node.initializer, isExported(node));
+          record([...owner, node.name.text].join('.'), node.initializer, exported(node));
           return;
         }
         if (objectOf(node.initializer)) {
-          recordMembers([...owner, node.name.text], objectOf(node.initializer).properties, isExported(node));
+          recordMembers([...owner, node.name.text], objectOf(node.initializer).properties, exported(node));
           return;
         }
         if (classOf(node.initializer)) {
-          recordMembers([...owner, node.name.text], classOf(node.initializer).members, isExported(node));
+          recordMembers([...owner, node.name.text], classOf(node.initializer).members, exported(node));
           return;
         }
       }
@@ -300,8 +310,8 @@ function main() {
           return;
         }
       }
-      ts.forEachChild(node, (child) => visit(child, owner));
-    })(sf, []);
+      ts.forEachChild(node, (child) => visit(child, owner, open));
+    })(sf, [], true);
     return out;
   }
 
