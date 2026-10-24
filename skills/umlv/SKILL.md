@@ -32,7 +32,7 @@ umlv --metrics --no-open <repo>   # also runs the repo's tests with coverage: ca
 | `modules[].source` | Repo-relative file, or directory for a Go package |
 | `modules[].grade` | `green`, `amber`, `red`, or `unlit` (not measured) |
 | `modules[].stats` | `mu`, `sigma`, `max` of the module's function CRAP scores; absent when unlit, or when the module has no functions (then green) |
-| `modules[].functions[]` | `name`, `file`, `line`, `cc`, and when measured `coverage` (0 to 1) and `crap` |
+| `modules[].functions[]` | `name`, `file`, `line`, `exported` (other modules can call it), `cc`, and when measured `coverage` (0 to 1) and `crap` |
 | `modules[].uses` | IDs of the modules it imports, and `lib:<name>` for libraries listed in the policy |
 | `folders` | Keyed by folder path (`"cart"`, `"internal/lang"`): `grade`, `stats` and `functions`, pooled over every measured function under the folder; absent when nothing under it was measured |
 | `coverageAt` | When the coverage report was written; absent means never measured |

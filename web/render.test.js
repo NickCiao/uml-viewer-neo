@@ -132,6 +132,13 @@ test('a module card spells out its grade and lists functions worst first', () =>
   assert.ok(html.includes('href="vscode://file/repo/src/checkout.ts:9"'));
 });
 
+test('a module card marks each function + when other modules can call it, − when not, and says so', () => {
+  const html = renderCard(page, top, 'checkout');
+  assert.ok(html.includes('<td><span class="vis" title="exported">+</span> <a href="vscode://file/repo/src/checkout.ts:9">run</a></td>'));
+  assert.ok(html.includes('<td><span class="vis" title="not exported">−</span> <a href="vscode://file/repo/src/checkout.ts:19">neverCalled</a></td>'));
+  assert.ok(html.includes('<p class="hint">+ callable from other modules · − not</p>'));
+});
+
 test('a folder card spells out its pooled grade, worst module and what was measured, and offers Open', () => {
   const html = renderCard(page, top, 'cart');
   assert.ok(html.includes('lamp-dot lamp-amber'));

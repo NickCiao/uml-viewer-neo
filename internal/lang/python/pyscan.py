@@ -89,8 +89,31 @@ def cover_start(fn):
     return body[0].lineno
 
 
+def declared_all(tree):
+    """The names a module lists in __all__, or None when it has no list."""
+    for node in tree.body:
+        if (isinstance(node, ast.Assign)
+                and any(isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets)
+                and isinstance(node.value, (ast.List, ast.Tuple))):
+            return {e.value for e in node.value.elts
+                    if isinstance(e, ast.Constant) and isinstance(e.value, str)}
+    return None
+
+
+def is_public(name):
+    """Not _private; a __dunder__ method is part of the public protocol."""
+    return not name.startswith("_") or (name.startswith("__") and name.endswith("__"))
+
+
+def exported(path, listed):
+    """Whether other modules are meant to call it: every part of its dotted
+    name is public and, when the module has __all__, it starts with a listed name."""
+    return all(is_public(p) for p in path) and (listed is None or path[0] in listed)
+
+
 def functions(tree, rel):
     out = []
+    listed = declared_all(tree)
 
     def walk(node, owner):
         for child in ast.iter_child_nodes(node):
@@ -102,6 +125,7 @@ def functions(tree, rel):
                     "end": child.end_lineno,
                     "cover_start": cover_start(child),
                     "cc": complexity(child),
+                    "exported": exported(owner + [child.name], listed),
                 })
             elif isinstance(child, ast.ClassDef):
                 walk(child, owner + [child.name])

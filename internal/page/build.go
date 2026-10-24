@@ -42,7 +42,7 @@ func Build(scan facts.Scan, scores facts.Scores, o Options) facts.Page {
 			pm.Grade, pm.Stats = score.Grade, score.Stats
 		}
 		for _, f := range m.Functions {
-			pf := facts.PageFunction{Name: f.Name, File: f.File, Line: f.Start, CC: f.CC}
+			pf := facts.PageFunction{Name: f.Name, File: f.File, Line: f.Start, Exported: f.Exported, CC: f.CC}
 			if fs, ok := score.Functions[f.Name]; ok {
 				cov, crap := fs.Coverage, fs.CRAP
 				pf.Coverage, pf.CRAP = &cov, &crap

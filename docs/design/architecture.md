@@ -140,7 +140,9 @@ A module's **card** starts with its path, as a link that opens it in your
 editor, and the number its lamp is judged on, spelled out: "Grade: amber (μ
 + σ = 9.4; amber is 8 to 12)". Below that come its CRAP mean, spread and
 worst, and a table of its functions with CRAP, CC and coverage, sorted worst
-first with the worst row marked. A folder's card shows its grade spelled out
+first with the worst row marked. Each function is marked, as in UML, `+` when
+other modules can call it and `−` when they cannot, and a line under the table
+says so. A folder's card shows its grade spelled out
 the same way, its worst module, how many of its modules were measured, its
 children, and an Open link; a box that is both labels its module's grade
 "This module" to keep the two apart. Both list what the box uses and what
@@ -242,6 +244,12 @@ makes a language pluggable. The facts must carry:
   Type-only imports count.
 - **Methods and object-literal methods** as functions, named `Type.method`
   or `object.method`.
+- **Whether each function is exported**, so other modules can call it: in Go
+  an exported name, and for a method an exported type too; in TypeScript an
+  `export`, a name in `export { }`, `export default` or `module.exports`, or
+  a public member of an exported class or object; in Python no leading
+  underscore in any part of its name (`__dunder__` methods count as public),
+  and a listed name when the module has `__all__`.
 - **Notes** for anything the scanner left out, such as Python scripts
   outside every package, so the CLI can say so.
 

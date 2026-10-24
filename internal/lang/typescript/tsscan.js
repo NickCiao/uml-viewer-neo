@@ -186,8 +186,37 @@ function main() {
     const out = [];
     const isFn = (n) => n && (n.kind === K.ArrowFunction || n.kind === K.FunctionExpression);
     const nameOf = (n) => (n && n.name && n.name.getText(sf)) || null;
+    const flags = (n) => ts.getCombinedModifierFlags(n);
 
-    function record(name, fn) {
+    // Top-level names exported by a statement of their own: `export { a, b as c }`,
+    // `export default a`, or CommonJS `module.exports = { a }` and `exports.b = b`.
+    const exportedNames = new Set();
+    const addName = (n) => { if (n && n.kind === K.Identifier) exportedNames.add(n.text); };
+    const isExports = (n) => /^(module\.exports|(module\.)?exports\.[\w$]+)$/.test(n.getText(sf));
+    for (const st of sf.statements) {
+      if (st.kind === K.ExportDeclaration && !st.moduleSpecifier && st.exportClause && st.exportClause.kind === K.NamedExports) {
+        for (const el of st.exportClause.elements) exportedNames.add((el.propertyName || el.name).text);
+      } else if (st.kind === K.ExportAssignment) {
+        addName(st.expression);
+      } else if (st.kind === K.ExpressionStatement && st.expression.kind === K.BinaryExpression &&
+          st.expression.operatorToken.kind === K.EqualsToken && isExports(st.expression.left)) {
+        const value = st.expression.right;
+        addName(value);
+        for (const p of value.kind === K.ObjectLiteralExpression ? value.properties : []) {
+          addName(p.kind === K.ShorthandPropertyAssignment ? p.name : p.initializer);
+        }
+      }
+    }
+    // Whether a declaration is exported: by its own `export`, or, at the top
+    // level, by name in one of the statements above.
+    const top = (n) => n.parent === sf || (n.parent.parent.kind === K.VariableStatement && n.parent.parent.parent === sf);
+    const isExported = (n) => (flags(n) & ts.ModifierFlags.Export) !== 0 ||
+      (top(n) && n.name !== undefined && exportedNames.has(n.name.getText(sf)));
+    // A private, protected or #private class member stays inside the class.
+    const hidden = (member) => (flags(member) & (ts.ModifierFlags.Private | ts.ModifierFlags.Protected)) !== 0 ||
+      (member.name !== undefined && member.name.kind === K.PrivateIdentifier);
+
+    function record(name, fn, exported) {
       if (!fn.body) return; // an overload or an abstract method
       const start = sf.getLineAndCharacterOfPosition(fn.getStart(sf));
       const end = sf.getLineAndCharacterOfPosition(fn.getEnd());
@@ -196,7 +225,7 @@ function main() {
       const body = sf.getLineAndCharacterOfPosition(fn.body.getStart(sf));
       out.push({
         name, file: rel(file), start: start.line + 1, end: end.line + 1,
-        cover_start: body.line + 1, cover_col: body.character, cc: complexity(fn),
+        cover_start: body.line + 1, cover_col: body.character, cc: complexity(fn), exported,
       });
     }
 
@@ -217,39 +246,42 @@ function main() {
       return n && n.kind === K.ObjectLiteralExpression ? n : null;
     }
 
-    function recordMembers(owner, members) {
+    // Members of an exported class or object are exported unless hidden.
+    function recordMembers(owner, members, exported) {
       for (const member of members) {
-        if (member.kind === K.Constructor) record([...owner, 'constructor'].join('.'), member);
-        else if (memberFn(member)) record([...owner, nameOf(member)].join('.'), memberFn(member));
+        const open = exported && !hidden(member);
+        if (member.kind === K.Constructor) record([...owner, 'constructor'].join('.'), member, open);
+        else if (memberFn(member)) record([...owner, nameOf(member)].join('.'), memberFn(member), open);
       }
     }
 
     (function visit(node, owner) {
       if (node.kind === K.FunctionDeclaration) {
-        record([...owner, nameOf(node) || 'default'].join('.'), node);
+        record([...owner, nameOf(node) || 'default'].join('.'), node, isExported(node));
         return; // nested functions belong to their parent
       }
       if (node.kind === K.ClassDeclaration || node.kind === K.ClassExpression) {
-        recordMembers([...owner, nameOf(node) || 'default'], node.members);
+        const exported = node.kind === K.ClassDeclaration && isExported(node);
+        recordMembers([...owner, nameOf(node) || 'default'], node.members, exported);
         return;
       }
       if (node.kind === K.VariableDeclaration && node.name.kind === K.Identifier) {
         if (isFn(node.initializer)) {
-          record([...owner, node.name.text].join('.'), node.initializer);
+          record([...owner, node.name.text].join('.'), node.initializer, isExported(node));
           return;
         }
         if (objectOf(node.initializer)) {
-          recordMembers([...owner, node.name.text], objectOf(node.initializer).properties);
+          recordMembers([...owner, node.name.text], objectOf(node.initializer).properties, isExported(node));
           return;
         }
       }
       if (node.kind === K.ExportAssignment) {
         if (isFn(node.expression)) {
-          record('default', node.expression);
+          record('default', node.expression, true);
           return;
         }
         if (objectOf(node.expression)) {
-          recordMembers(['default'], objectOf(node.expression).properties);
+          recordMembers(['default'], objectOf(node.expression).properties, true);
           return;
         }
       }

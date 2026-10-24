@@ -156,12 +156,17 @@ function moduleSection(page, m, title) {
   const fns = [...m.functions].sort((a, b) => (b.crap ?? -1) - (a.crap ?? -1));
   const rows = fns.map((f, i) =>
     `<tr${i === 0 && f.crap != null ? ' class="worst"' : ''}>` +
-    `<td><a href="${link(page, f.file, f.line)}">${esc(f.name)}</a></td>` +
+    `<td>${visibility(f)} <a href="${link(page, f.file, f.line)}">${esc(f.name)}</a></td>` +
     `<td>${f.crap != null ? fmt(f.crap) : '–'}</td><td>${f.cc}</td>` +
     `<td>${f.coverage != null ? Math.round(f.coverage * 100) + '%' : '–'}</td></tr>`).join('');
   return html + '<h3>Functions</h3><table><thead><tr><th>function</th><th>crap</th><th>cc</th><th>cov</th></tr></thead>' +
-    `<tbody>${rows}</tbody></table>`;
+    `<tbody>${rows}</tbody></table><p class="hint">+ callable from other modules · − not</p>`;
 }
+
+// The UML mark for whether other modules can call a function.
+const visibility = (f) => f.exported
+  ? '<span class="vis" title="exported">+</span>'
+  : '<span class="vis" title="not exported">−</span>';
 
 function folderSection(page, b) {
   const children = viewAt(page, b.key.split('/')).boxes.filter((c) => c.key !== b.key);

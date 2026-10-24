@@ -104,7 +104,8 @@ Click `report` and a card opens on the right:
 
 The card starts with the module's grade and the number behind it (μ + σ is the average plus the
 spread). Below that it lists each function with its score (`crap`), its complexity (`cc`, roughly
-the number of paths) and how much of it the tests run (`cov`). The card shows why `report` is
+the number of paths) and how much of it the tests run (`cov`). A `+` before a name means other
+modules can call it; a `−` means only its own module can. The card shows why `report` is
 red: `Daily` has 16 paths and no test touches it. The path under the name and each function name
 open the code in VS Code, or in whichever editor you set in `.umlv/policy.toml`.
 

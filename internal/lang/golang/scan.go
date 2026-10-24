@@ -203,11 +203,12 @@ func functions(root string, p listed) []facts.Function {
 				continue
 			}
 			out = append(out, facts.Function{
-				Name:  funcName(fd),
-				File:  filepath.ToSlash(rel),
-				Start: fset.Position(fd.Pos()).Line,
-				End:   fset.Position(fd.End()).Line,
-				CC:    complexity(fd),
+				Name:     funcName(fd),
+				File:     filepath.ToSlash(rel),
+				Start:    fset.Position(fd.Pos()).Line,
+				End:      fset.Position(fd.End()).Line,
+				CC:       complexity(fd),
+				Exported: exported(fd),
 			})
 		}
 	}
@@ -219,6 +220,15 @@ func funcName(fd *ast.FuncDecl) string {
 		return fd.Name.Name
 	}
 	return recvType(fd.Recv.List[0].Type) + "." + fd.Name.Name
+}
+
+// exported is whether code outside the package can call fd by name: its
+// name is exported and, for a method, so is its receiver's type.
+func exported(fd *ast.FuncDecl) bool {
+	if fd.Recv == nil || len(fd.Recv.List) == 0 {
+		return fd.Name.IsExported()
+	}
+	return fd.Name.IsExported() && ast.IsExported(recvType(fd.Recv.List[0].Type))
 }
 
 func recvType(e ast.Expr) string {
