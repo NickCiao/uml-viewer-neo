@@ -238,12 +238,23 @@ function main() {
       return null;
     }
 
-    // An object literal seen through `satisfies`, `as`, and parentheses.
-    function objectOf(n) {
-      while (n && (n.kind === K.SatisfiesExpression || n.kind === K.AsExpression || n.kind === K.ParenthesizedExpression)) {
-        n = n.expression;
-      }
-      return n && n.kind === K.ObjectLiteralExpression ? n : null;
+    // An expression seen through `satisfies`, `as`, and parentheses.
+    const isWrapper = (n) => n.kind === K.SatisfiesExpression || n.kind === K.AsExpression || n.kind === K.ParenthesizedExpression;
+    function unwrap(n) {
+      while (n && isWrapper(n)) n = n.expression;
+      return n;
+    }
+    const objectOf = (n) => (unwrap(n) && unwrap(n).kind === K.ObjectLiteralExpression ? unwrap(n) : null);
+    const classOf = (n) => (unwrap(n) && unwrap(n).kind === K.ClassExpression ? unwrap(n) : null);
+
+    // Whether an expression is what its module exports: `export default …`,
+    // `export = …`, or a top-level CommonJS `module.exports = …` or `exports.x = …`.
+    function isExportedValue(n) {
+      let p = n.parent;
+      while (isWrapper(p)) p = p.parent;
+      if (p.kind === K.ExportAssignment) return true;
+      return p.kind === K.BinaryExpression && p.operatorToken.kind === K.EqualsToken && isExports(p.left) &&
+        p.parent.kind === K.ExpressionStatement && p.parent.parent === sf;
     }
 
     // Members of an exported class or object are exported unless hidden.
@@ -261,7 +272,7 @@ function main() {
         return; // nested functions belong to their parent
       }
       if (node.kind === K.ClassDeclaration || node.kind === K.ClassExpression) {
-        const exported = node.kind === K.ClassDeclaration && isExported(node);
+        const exported = node.kind === K.ClassDeclaration ? isExported(node) : isExportedValue(node);
         recordMembers([...owner, nameOf(node) || 'default'], node.members, exported);
         return;
       }
@@ -272,6 +283,10 @@ function main() {
         }
         if (objectOf(node.initializer)) {
           recordMembers([...owner, node.name.text], objectOf(node.initializer).properties, isExported(node));
+          return;
+        }
+        if (classOf(node.initializer)) {
+          recordMembers([...owner, node.name.text], classOf(node.initializer).members, isExported(node));
           return;
         }
       }

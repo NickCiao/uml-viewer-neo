@@ -48,6 +48,8 @@ func TestScanMarksWhatOtherModulesAreMeantToCall(t *testing.T) {
 			"    def _check(self): pass\n    def __mangled(self): pass\n" +
 			"class _Hidden:\n    def visible(self): pass\n",
 		"pkg/listed.py": "__all__ = [\"kept\"]\ndef kept(): pass\ndef dropped(): pass\n",
+		"pkg/grown.py": "__all__: list[str] = [\"a\"] + [\"b\"]\n__all__ += [\"c\"]\n__all__.extend((\"d\",))\n" +
+			"__all__.append(\"e\")\ndef a(): pass\ndef b(): pass\ndef c(): pass\ndef d(): pass\ndef e(): pass\ndef f(): pass\n",
 	}
 	for name, src := range files {
 		os.MkdirAll(filepath.Join(root, filepath.Dir(name)), 0o755)
@@ -66,7 +68,8 @@ func TestScanMarksWhatOtherModulesAreMeantToCall(t *testing.T) {
 		}
 	}
 	want := map[string]bool{"run": true, "_helper": false, "Shop.__init__": true, "Shop.add": true,
-		"Shop._check": false, "Shop.__mangled": false, "_Hidden.visible": false, "kept": true, "dropped": false}
+		"Shop._check": false, "Shop.__mangled": false, "_Hidden.visible": false, "kept": true, "dropped": false,
+		"a": true, "b": true, "c": true, "d": true, "e": true, "f": false}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("exported = %v", got)
 	}

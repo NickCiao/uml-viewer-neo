@@ -155,8 +155,9 @@ func TestOmitFromLeavesOutWhatItNamesAndWhatIsInsideIt(t *testing.T) {
 		{ID: "src/orders/legacyish.ts", Path: "orders/legacyish", Name: "legacyish", File: "src/orders/legacyish.ts"},
 		{ID: "src/gen/api.ts", Path: "gen/api", Name: "api", File: "src/gen/api.ts"},
 	}}
+	before := facts.Scan{Notes: append([]string{}, scan.Notes...), Modules: append([]facts.Module{}, scan.Modules...)}
 	// by place in the tree, by path in the repo, a typo, and an entry that would cover everything
-	got := Policy{Omit: []string{"orders/legacy/", "./src/gen", "ordres", "/"}}.OmitFrom(scan)
+	got := Policy{Omit: []string{"orders/legacy/", "./src/gen", "./ordres/", "/"}}.OmitFrom(scan)
 	var ids []string
 	for _, m := range got.Modules {
 		ids = append(ids, m.ID)
@@ -165,12 +166,44 @@ func TestOmitFromLeavesOutWhatItNamesAndWhatIsInsideIt(t *testing.T) {
 		t.Fatalf("kept %v", ids)
 	}
 	want := []string{"from the scanner", "Left out 3 modules named under omit in .umlv/policy.toml.",
-		`Nothing matches "ordres" under omit in .umlv/policy.toml.`}
+		`Nothing matches "./ordres/" under omit in .umlv/policy.toml.`}
 	if !reflect.DeepEqual(got.Notes, want) {
 		t.Fatalf("notes = %q", got.Notes)
 	}
-	if len(scan.Notes) != 1 || len(scan.Modules) != 5 {
+	if !reflect.DeepEqual(scan, before) {
 		t.Fatal("OmitFrom changed the scan it was given")
+	}
+}
+
+func TestOmitEntriesThatOverlapAllCountAsMatched(t *testing.T) {
+	scan := facts.Scan{Modules: []facts.Module{
+		{ID: "src/gen/api.ts", Path: "gen/api", File: "src/gen/api.ts"},
+		{ID: "src/internal/lang/go.ts", Path: "internal/lang/go", File: "src/internal/lang/go.ts"},
+	}}
+	got := Policy{Omit: []string{"internal", "internal/lang", "src/gen", "gen"}}.OmitFrom(scan)
+	if len(got.Modules) != 0 || !reflect.DeepEqual(got.Notes, []string{"Left out 2 modules named under omit in .umlv/policy.toml."}) {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+// A flat Python package: its __init__.py is the box "shop", and every file sits under shop/.
+func TestOmitReadsAnEntryAsABoxNameBeforeARepoPath(t *testing.T) {
+	scan := facts.Scan{Modules: []facts.Module{
+		{ID: "shop/__init__.py", Name: "shop", File: "shop/__init__.py"},
+		{ID: "shop/checkout.py", Path: "checkout", Name: "checkout", File: "shop/checkout.py"},
+		{ID: "shop/cart/basket.py", Path: "cart/basket", Name: "basket", File: "shop/cart/basket.py"},
+	}}
+	ids := func(s facts.Scan) (out []string) {
+		for _, m := range s.Modules {
+			out = append(out, m.ID)
+		}
+		return out
+	}
+	if got := ids(Policy{Omit: []string{"shop"}}.OmitFrom(scan)); !reflect.DeepEqual(got, []string{"shop/checkout.py", "shop/cart/basket.py"}) {
+		t.Fatalf("omit shop kept %v", got)
+	}
+	if got := ids(Policy{Omit: []string{"shop/cart"}}.OmitFrom(scan)); !reflect.DeepEqual(got, []string{"shop/__init__.py", "shop/checkout.py"}) {
+		t.Fatalf("omit shop/cart kept %v", got)
 	}
 }
 

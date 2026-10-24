@@ -81,8 +81,9 @@ func Write(root string, p Policy) error {
 		"# Outside libraries drawn as ovals. A name also covers its sub-packages.\n" +
 		"libraries = " + list(p.Libraries) + "\n\n" +
 		"# Folders or modules to leave out of the diagram and its grades, named as\n" +
-		"# the page names them (\"orders/legacy\") or by their path in the repo\n" +
-		"# (\"src/generated\"). Each also covers everything inside it.\n" +
+		"# the page names them (\"orders/legacy\") or, when no box goes by that\n" +
+		"# name, by their path in the repo (\"src/generated\"). Each also covers\n" +
+		"# everything inside it.\n" +
 		"omit = " + list(p.Omit) + "\n\n" +
 		"# Editor for source links: \"vscode\" or \"cursor\".\n" +
 		"editor = " + strconv.Quote(p.Editor) + "\n\n" +
@@ -128,57 +129,69 @@ func (p Policy) EditorPrefix(root string) string {
 	return p.Editor + "://file" + (&url.URL{Path: filepath.ToSlash(root)}).EscapedPath() + "/"
 }
 
-// OmitFrom leaves out the modules the omit list names, by their place in the
-// folder tree or their path in the repo; an entry also covers what is under
-// it. Notes say how many were left out and name any entry that matched
-// nothing, which is most likely a typo.
+// OmitFrom leaves out the modules the omit list names; an entry also covers
+// what is under it. An entry is read as the page names a box when some box
+// goes by it, else as a path in the repo, so a folder named both ways is not
+// taken twice. Notes say how many were left out and name any entry that
+// matched nothing, which is most likely a typo.
 func (p Policy) OmitFrom(scan facts.Scan) facts.Scan {
 	entries := omitEntries(p.Omit)
 	if len(entries) == 0 {
 		return scan
 	}
-	matched := map[string]bool{}
-	kept := []facts.Module{}
-	for _, m := range scan.Modules {
-		if e, ok := omitted(m, entries); ok {
-			matched[e] = true
-			continue
-		}
-		kept = append(kept, m)
-	}
+	drop := make([]bool, len(scan.Modules))
 	notes := append([]string{}, scan.Notes...)
+	var unmatched []string
+	for _, e := range entries {
+		path := facts.Module.Source
+		if anyWithin(scan.Modules, facts.Module.Place, e.path) {
+			path = facts.Module.Place
+		}
+		found := false
+		for i, m := range scan.Modules {
+			if within(path(m), e.path) {
+				drop[i], found = true, true
+			}
+		}
+		if !found {
+			unmatched = append(unmatched, fmt.Sprintf("Nothing matches %q under omit in %s.", e.raw, File))
+		}
+	}
+	kept := []facts.Module{}
+	for i, m := range scan.Modules {
+		if !drop[i] {
+			kept = append(kept, m)
+		}
+	}
 	if n := len(scan.Modules) - len(kept); n > 0 {
 		notes = append(notes, fmt.Sprintf("Left out %d module%s named under omit in %s.", n, plural(n), File))
 	}
-	for _, e := range entries {
-		if !matched[e] {
-			notes = append(notes, fmt.Sprintf("Nothing matches %q under omit in %s.", e, File))
-		}
-	}
-	scan.Modules, scan.Notes = kept, notes
+	scan.Modules, scan.Notes = kept, append(notes, unmatched...)
 	return scan
 }
 
-// omitEntries are the omit list without leading "./", surrounding slashes or
-// empty entries, which would otherwise cover the whole repo.
-func omitEntries(omit []string) []string {
-	var out []string
-	for _, e := range omit {
-		if e = strings.Trim(strings.TrimPrefix(e, "./"), "/"); e != "" {
-			out = append(out, e)
+// omitEntry is one entry of the omit list as written, and as a path without
+// a leading "./" or surrounding slashes.
+type omitEntry struct{ raw, path string }
+
+// omitEntries drops empty entries, which would otherwise cover the whole repo.
+func omitEntries(omit []string) []omitEntry {
+	var out []omitEntry
+	for _, raw := range omit {
+		if path := strings.Trim(strings.TrimPrefix(raw, "./"), "/"); path != "" {
+			out = append(out, omitEntry{raw, path})
 		}
 	}
 	return out
 }
 
-// omitted is the first entry that covers m.
-func omitted(m facts.Module, entries []string) (string, bool) {
-	for _, e := range entries {
-		if within(m.Place(), e) || within(m.Source(), e) {
-			return e, true
+func anyWithin(modules []facts.Module, path func(facts.Module) string, entry string) bool {
+	for _, m := range modules {
+		if within(path(m), entry) {
+			return true
 		}
 	}
-	return "", false
+	return false
 }
 
 func within(path, entry string) bool {

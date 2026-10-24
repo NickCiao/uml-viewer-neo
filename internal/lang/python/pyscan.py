@@ -89,15 +89,42 @@ def cover_start(fn):
     return body[0].lineno
 
 
-def declared_all(tree):
-    """The names a module lists in __all__, or None when it has no list."""
-    for node in tree.body:
-        if (isinstance(node, ast.Assign)
-                and any(isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets)
-                and isinstance(node.value, (ast.List, ast.Tuple))):
-            return {e.value for e in node.value.elts
-                    if isinstance(e, ast.Constant) and isinstance(e.value, str)}
+def is_all(node):
+    return isinstance(node, ast.Name) and node.id == "__all__"
+
+
+def literal_names(node):
+    """The strings in a literal list or tuple, or a sum of them; None otherwise."""
+    if isinstance(node, (ast.List, ast.Tuple)):
+        return {e.value for e in node.elts
+                if isinstance(e, ast.Constant) and isinstance(e.value, str)}
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left, right = literal_names(node.left), literal_names(node.right)
+        return None if left is None or right is None else left | right
     return None
+
+
+def all_names(node):
+    """The names one top-level statement adds to __all__, or None."""
+    if isinstance(node, ast.Assign) and any(is_all(t) for t in node.targets):
+        return literal_names(node.value)
+    if isinstance(node, (ast.AnnAssign, ast.AugAssign)) and is_all(node.target):
+        return literal_names(node.value)
+    call = node.value if isinstance(node, ast.Expr) else None
+    if (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+            and is_all(call.func.value) and len(call.args) == 1):
+        if call.func.attr == "extend":
+            return literal_names(call.args[0])
+        if call.func.attr == "append":
+            return literal_names(ast.List(elts=call.args))
+    return None
+
+
+def declared_all(tree):
+    """The names a module puts in __all__ by assigning, adding, extending or
+    appending literals, or None when it has no such list."""
+    found = [names for names in map(all_names, tree.body) if names is not None]
+    return set().union(*found) if found else None
 
 
 def is_public(name):

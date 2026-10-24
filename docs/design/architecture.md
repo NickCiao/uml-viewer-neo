@@ -245,11 +245,12 @@ makes a language pluggable. The facts must carry:
 - **Methods and object-literal methods** as functions, named `Type.method`
   or `object.method`.
 - **Whether each function is exported**, so other modules can call it: in Go
-  an exported name, and for a method an exported type too; in TypeScript an
-  `export`, a name in `export { }`, `export default` or `module.exports`, or
-  a public member of an exported class or object; in Python no leading
-  underscore in any part of its name (`__dunder__` methods count as public),
-  and a listed name when the module has `__all__`.
+  an exported name outside a main package, and for a method an exported type
+  too; in TypeScript an `export`, a name in `export { }`, `export default`,
+  `module.exports` or `exports.x`, or a public member of an exported class or
+  object; in Python no leading underscore in any part of its name
+  (`__dunder__` methods count as public), and a listed name when the module
+  has `__all__`.
 - **Notes** for anything the scanner left out, such as Python scripts
   outside every package, so the CLI can say so.
 
@@ -282,7 +283,7 @@ languages cannot drift apart.
 | Key | Meaning | Default |
 |---|---|---|
 | `libraries` | Outside libraries drawn as ovals; a name also covers its sub-packages (`ai` covers `ai/test`) | The 8 imported by the most modules |
-| `omit` | Folders or modules left out of the page, its grades and the summary, named by their place in the tree (`orders/legacy`) or their path in the repo (`src/generated`); an entry also covers what is inside it. A note says how many were left out and names any entry that matched nothing | Nothing |
+| `omit` | Folders or modules left out of the page, its grades and the summary, named by their place in the tree (`orders/legacy`) or, when no box goes by that name, their path in the repo (`src/generated`); an entry also covers what is inside it. A note says how many were left out and names any entry that matched nothing | Nothing |
 | `editor` | Editor for source links: `vscode` or `cursor` | `vscode` |
 | `coverage.command`, `coverage.report` | Replace the language's test command and report path | See [Languages](#languages) |
 
