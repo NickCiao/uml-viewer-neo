@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { viewAt } from './model.js';
-import { esc, badgeText, renderDiagram, renderHeader, renderCard } from './render.js';
+import { esc, badgeText, arrowText, renderDiagram, renderHeader, renderCard } from './render.js';
 
 // Header times are shown in local time, so pin a zone that is not UTC (+05:30, no DST)
 // before any Date exists; that keeps a plain `node --test web/` the same on every machine.
@@ -47,6 +47,23 @@ test('the diagram has a box per key, a lamp per box and an arrow per pair', () =
   assert.ok(svg.includes('class="lamp lamp-red"'));
   assert.equal((svg.match(/class="arrow"/g) || []).length, top.arrows.length);
   assert.ok(svg.includes('checkout → pricing'));
+});
+
+test('hovering an arrow to or from a folder lists the imports behind it; between modules it just names them', () => {
+  const svg = renderDiagram(top, fakePos(top), on);
+  assert.ok(svg.includes('<title>checkout → cart/ (1 import)\ncheckout → cart/basket</title>'));
+  assert.ok(svg.includes('<title>shop → checkout</title>'));
+  assert.ok(svg.includes('<title>checkout → zod</title>'));
+});
+
+test('an arrow lists at most ten imports and counts the rest', () => {
+  const imports = Array.from({ length: 12 }, (_, i) => ({ from: `a/m${i}`, to: 'b' }));
+  const text = arrowText('a/', 'b/', imports).split('\n');
+  assert.equal(text[0], 'a/ → b/ (12 imports)');
+  assert.deepEqual(text.slice(1, 3), ['a/m0 → b', 'a/m1 → b']);
+  assert.equal(text.length, 12);
+  assert.equal(text[11], '… and 2 more');
+  assert.equal(arrowText('a', 'b', []), 'a → b');
 });
 
 test('selecting a box highlights its arrows and fades and dims the rest', () => {

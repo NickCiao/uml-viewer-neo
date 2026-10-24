@@ -67,6 +67,21 @@ test('arrows are merged to one per pair of boxes and skip a box importing itself
   assert.deepEqual(arrows, ['checkout>cart', 'checkout>lib:zod', 'checkout>pricing', 'pricing>cart', 'shop>checkout']);
 });
 
+test('a merged arrow keeps the module imports it stands for, named inside the folder in view', () => {
+  const imports = (view, from, to) => view.arrows.find((a) => a.from === from && a.to === to).imports;
+  assert.deepEqual(imports(viewAt(page, []), 'checkout', 'cart'), [{ from: 'checkout', to: 'cart/basket' }]);
+  assert.deepEqual(imports(viewAt(page, []), 'checkout', 'lib:zod'), [{ from: 'checkout', to: 'zod' }]);
+  // inside cart/, the folder's own module goes by its name
+  assert.deepEqual(imports(viewAt(page, ['cart']), 'cart', 'cart/basket'), [{ from: 'cart', to: 'basket' }]);
+  const two = { libraries: [], modules: [
+    { id: 'o/pay', tree: ['orders', 'pay'], grade: 'unlit', uses: ['m/fx', 'm'], functions: [] },
+    { id: 'o/cart', tree: ['orders', 'cart'], grade: 'unlit', uses: ['m'], functions: [] },
+    { id: 'm', tree: ['money'], grade: 'unlit', uses: [], functions: [] },
+    { id: 'm/fx', tree: ['money', 'fx'], grade: 'unlit', uses: [], functions: [] }] };
+  assert.deepEqual(imports(viewAt(two, []), 'orders', 'money'), [
+    { from: 'orders/cart', to: 'money' }, { from: 'orders/pay', to: 'money' }, { from: 'orders/pay', to: 'money/fx' }]);
+});
+
 test('inside a folder, its own module is a box and outside partners become badge counts', () => {
   const view = viewAt(page, ['cart']);
   assert.deepEqual(view.boxes.map((b) => b.key), ['cart', 'cart/basket']);

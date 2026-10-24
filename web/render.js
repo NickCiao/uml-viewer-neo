@@ -31,13 +31,16 @@ export function renderDiagram(view, pos, ui) {
     return b ? b.name + (b.kind === 'module' ? '' : '/') : displayName(key);
   };
   const dim = (key) => sel && key !== sel && !partners.has(key);
+  const isFolder = (key) => view.boxes.some((b) => b.key === key && b.kind !== 'module');
+  const imports = new Map(view.arrows.map((a) => [`${a.from}\n${a.to}`, a.imports]));
 
   const arrows = pos.edges.map((e) => {
     const touches = sel && (e.from === sel || e.to === sel);
     if (!ui.arrows && !touches) return '';
     const cls = touches ? 'arrow hi' : sel ? 'arrow faded' : 'arrow';
     const d = 'M' + e.points.map(([x, y]) => `${x},${y}`).join(' L');
-    return `<g class="edge"><title>${esc(nameOf(e.from))} → ${esc(nameOf(e.to))}</title>` +
+    const listed = isFolder(e.from) || isFolder(e.to) ? imports.get(`${e.from}\n${e.to}`) || [] : [];
+    return `<g class="edge"><title>${esc(arrowText(nameOf(e.from), nameOf(e.to), listed))}</title>` +
       `<path class="hit" d="${d}"/><path class="${cls}" d="${d}" marker-end="url(#${touches ? 'head-hi' : 'head'})"/></g>`;
   }).join('');
 
@@ -70,6 +73,18 @@ export function renderDiagram(view, pos, ui) {
   const vb = `${-MARGIN} ${-MARGIN} ${pos.width + 2 * MARGIN} ${pos.height + 2 * MARGIN}`;
   return `<svg xmlns="http://www.w3.org/2000/svg" class="diagram" viewBox="${vb}" preserveAspectRatio="xMidYMin meet">` +
     `<defs>${MARKERS}</defs><g class="edges">${arrows}</g>${boxes}${libs}</svg>`;
+}
+
+// An arrow's tooltip: the two boxes, then, for an arrow to or from a folder,
+// the module imports it stands for, one per line.
+const LISTED = 10;
+export function arrowText(from, to, imports) {
+  const head = `${from} → ${to}`;
+  if (imports.length === 0) return head;
+  const n = imports.length;
+  const lines = imports.slice(0, LISTED).map((i) => `${i.from} → ${i.to}`);
+  if (n > LISTED) lines.push(`… and ${n - LISTED} more`);
+  return `${head} (${n} import${n === 1 ? '' : 's'})\n` + lines.join('\n');
 }
 
 function lampText(b) {
