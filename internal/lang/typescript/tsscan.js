@@ -215,6 +215,22 @@ function main() {
     // A private, protected or #private class member stays inside the class.
     const hidden = (member) => (flags(member) & (ts.ModifierFlags.Private | ts.ModifierFlags.Protected)) !== 0 ||
       (member.name !== undefined && member.name.kind === K.PrivateIdentifier);
+    // A script, a file with no import or export, puts its top-level namespaces
+    // in the global scope, where every other file can reach them.
+    const script = !ts.isExternalModule(sf) && !/\.[cm]ts$/.test(file) &&
+      optionsFor(path.dirname(file)).moduleDetection !== ts.ModuleDetectionKind.Force;
+    // Namespaces made public through an alias, `export import Pub = Internal.Deep`,
+    // by their path from the alias's own namespace and from the top.
+    const aliased = new Set();
+    (function aliases(node, at) {
+      if (node.kind === K.ModuleDeclaration && node.name.kind === K.Identifier) at = [...at, node.name.text];
+      if (node.kind === K.ImportEqualsDeclaration && (flags(node) & ts.ModifierFlags.Export) !== 0 &&
+          node.moduleReference.kind !== K.ExternalModuleReference) {
+        const target = node.moduleReference.getText(sf);
+        aliased.add([...at, target].join('.')).add(target);
+      }
+      ts.forEachChild(node, (child) => aliases(child, at));
+    })(sf, []);
 
     function record(name, fn, exported) {
       if (!fn.body) return; // an overload or an abstract method
@@ -266,15 +282,15 @@ function main() {
       }
     }
 
-    // `open` is whether every namespace around a node is exported: a member of
-    // an unexported namespace stays inside the module, whatever its own `export`.
+    // `open` is whether other files can reach the namespaces around a node: a
+    // member of an unreachable namespace stays inside it, whatever its own `export`.
     (function visit(node, owner, open) {
       const exported = (n) => open && isExported(n);
       if (node.kind === K.ModuleDeclaration) {
-        // `namespace A.B {}` nests B in A, and B is exported whenever A is.
-        const nested = (node.flags & ts.NodeFlags.NestedNamespace) !== 0;
-        const name = node.name.kind === K.Identifier ? [node.name.text] : []; // not `declare module "x"`
-        if (node.body) visit(node.body, [...owner, ...name], nested ? open : exported(node));
+        const at = [...owner, ...(node.name.kind === K.Identifier ? [node.name.text] : [])]; // not `declare module "x"`
+        // TypeScript marks B in `namespace A.B {}` exported, so B is as open as A.
+        const reachable = exported(node) || (script && node.parent === sf) || aliased.has(at.join('.'));
+        if (node.body) visit(node.body, at, reachable);
         return;
       }
       if (node.kind === K.FunctionDeclaration) {

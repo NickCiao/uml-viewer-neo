@@ -88,14 +88,28 @@ export default function () {}
 		"d.js": "module.exports = class Exported { m() {} static s() {} };\nmodule.exports.Helper = class { h() {} };\n",
 		"e.ts": "export const Foo = class { m() {} private p() {} };\nconst Bar = class { m() {} };\n" +
 			"export default (class Named { n() {} });\nregister(class Arg { a() {} });\n",
-		"n.ts": `export namespace Open { export function a() {} function b() {} }
-namespace Closed { export function c() {} export class K { k() {} } }
+		"n.ts": `export namespace Open { export function a() {} function b() {}
+  export const k = () => 1; export const o = { m() {} }; export const C = class { m() {} }; }
+namespace Closed { export function c() {} export class K { k() {} }
+  export const k = () => 1; export const o = { m() {} }; export const C = class { m() {} }; }
 export namespace Outer.Inner { export function d() {} }
 namespace Hidden.Inner { export function e() {} }
 export namespace Shell { export namespace Kept { export function g() {} } namespace Dropped { export function h() {} } }
 namespace Named { export function i() {} }
 export { Named };
 declare module "ambient" { export function j(): void; }
+`,
+		"eq.ts":   "namespace Eq { export function q() {} function r() {} }\nexport = Eq;\n",
+		"dflt.ts": "namespace D { export function q() {} }\nexport default D;\n",
+		"alias.ts": `namespace Internal { export function f() {} export namespace Deep { export function g() {} } }
+namespace Unused { export function u() {} }
+export import Pub = Internal;
+export import PubDeep = Internal.Deep;
+export namespace Outer { namespace Hidden { export function h() {} } export import H = Hidden; }
+`,
+		// no import or export: a script, whose top-level namespaces are global
+		"script.ts": `namespace App { export function start() {} function hidden() {}
+  export namespace Util { export function fmt() {} } namespace Inner { export function no() {} } }
 `,
 	}
 	for name, src := range files {
@@ -125,9 +139,35 @@ declare module "ambient" { export function j(): void; }
 		"n.ts Open.a": true, "n.ts Open.b": false, "n.ts Closed.c": false, "n.ts Closed.K.k": false,
 		"n.ts Outer.Inner.d": true, "n.ts Hidden.Inner.e": false, "n.ts Shell.Kept.g": true,
 		"n.ts Shell.Dropped.h": false, "n.ts Named.i": true,
+		"n.ts Open.k": true, "n.ts Open.o.m": true, "n.ts Open.C.m": true,
+		"n.ts Closed.k": false, "n.ts Closed.o.m": false, "n.ts Closed.C.m": false,
+		"eq.ts Eq.q": true, "eq.ts Eq.r": false, "dflt.ts D.q": true,
+		"alias.ts Internal.f": true, "alias.ts Internal.Deep.g": true, "alias.ts Unused.u": false,
+		"alias.ts Outer.Hidden.h": true,
+		"script.ts App.start":     true, "script.ts App.hidden": false, "script.ts App.Util.fmt": true,
+		"script.ts App.Inner.no": false,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("exported = %v", got)
+	}
+}
+
+func TestModuleDetectionForceMakesEveryFileAModule(t *testing.T) {
+	root := t.TempDir()
+	for name, src := range map[string]string{
+		"tsconfig.json": `{"compilerOptions": {"moduleDetection": "force"}}`,
+		"app.ts":        "namespace App { export function start() {} }\n",
+	} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s, err := Scan(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := s.Modules[0].Functions[0]; f.Name != "App.start" || f.Exported {
+		t.Fatalf("in a module, an unexported namespace hides its members: %+v", f)
 	}
 }
 
