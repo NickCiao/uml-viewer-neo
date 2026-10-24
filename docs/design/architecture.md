@@ -274,6 +274,7 @@ languages cannot drift apart.
 | Key | Meaning | Default |
 |---|---|---|
 | `libraries` | Outside libraries drawn as ovals; a name also covers its sub-packages (`ai` covers `ai/test`) | The 8 imported by the most modules |
+| `omit` | Folders or modules left out of the page, its grades and the summary, named by their place in the tree (`orders/legacy`) or their path in the repo (`src/generated`); an entry also covers what is inside it. A note says how many were left out and names any entry that matched nothing | Nothing |
 | `editor` | Editor for source links: `vscode` or `cursor` | `vscode` |
 | `coverage.command`, `coverage.report` | Replace the language's test command and report path | See [Languages](#languages) |
 

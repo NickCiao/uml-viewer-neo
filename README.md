@@ -12,7 +12,8 @@ New to the page? [docs/tutorial.md](docs/tutorial.md) walks through a small exam
 `umlv ~/code/some-repo` scans the repo and opens `.umlv/index.html`. `--metrics` runs the repo's
 own tests with coverage first, which lights the lamps; later runs reuse that report. The same data
 is written to `.umlv/data.json` for scripts and agents. `.umlv/policy.toml` is written once and is
-yours to edit: which libraries show as ovals, your editor, and a custom coverage command.
+yours to edit: which libraries show as ovals, which folders to leave out, your editor, and a custom
+coverage command.
 
 To keep `.umlv/` out of every repo's `git status`:
 

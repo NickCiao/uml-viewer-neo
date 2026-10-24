@@ -29,12 +29,12 @@ func TestWriteThenLoadRoundTrips(t *testing.T) {
 	if _, ok, err := Load(root); ok || err != nil {
 		t.Fatalf("missing policy: ok=%v err=%v", ok, err)
 	}
-	want := Policy{Libraries: []string{"zod", "@scope/pkg"}, Editor: "cursor"}
+	want := Policy{Libraries: []string{"zod", "@scope/pkg"}, Omit: []string{"src/generated"}, Editor: "cursor"}
 	if err := Write(root, want); err != nil {
 		t.Fatal(err)
 	}
 	got, ok, err := Load(root)
-	if err != nil || !ok || !reflect.DeepEqual(got.Libraries, want.Libraries) || got.Editor != "cursor" {
+	if err != nil || !ok || !reflect.DeepEqual(got.Libraries, want.Libraries) || !reflect.DeepEqual(got.Omit, want.Omit) || got.Editor != "cursor" {
 		t.Fatalf("got %+v ok=%v err=%v", got, ok, err)
 	}
 	text, _ := os.ReadFile(filepath.Join(root, File))
@@ -133,5 +133,54 @@ func TestWriteFailsWhenUmlvIsNotAFolder(t *testing.T) {
 	}
 	if err := Write(root, Policy{Editor: "vscode"}); err == nil {
 		t.Fatal("writing under a file must fail")
+	}
+}
+
+func TestTheDefaultPolicyOmitsNothingButShowsHow(t *testing.T) {
+	root := t.TempDir()
+	if err := Write(root, Policy{Editor: "vscode"}); err != nil {
+		t.Fatal(err)
+	}
+	text, _ := os.ReadFile(filepath.Join(root, File))
+	if !strings.Contains(string(text), "\nomit = []\n") || !strings.Contains(string(text), "\"orders/legacy\"") {
+		t.Fatalf("written policy:\n%s", text)
+	}
+}
+
+func TestOmitFromLeavesOutWhatItNamesAndWhatIsInsideIt(t *testing.T) {
+	scan := facts.Scan{Notes: []string{"from the scanner"}, Modules: []facts.Module{
+		{ID: "src/index.ts", Name: "shop", File: "src/index.ts"},
+		{ID: "src/orders/legacy.ts", Path: "orders/legacy", Name: "legacy", File: "src/orders/legacy.ts"},
+		{ID: "src/orders/legacy/old.ts", Path: "orders/legacy/old", Name: "old", File: "src/orders/legacy/old.ts"},
+		{ID: "src/orders/legacyish.ts", Path: "orders/legacyish", Name: "legacyish", File: "src/orders/legacyish.ts"},
+		{ID: "src/gen/api.ts", Path: "gen/api", Name: "api", File: "src/gen/api.ts"},
+	}}
+	// by place in the tree, by path in the repo, a typo, and an entry that would cover everything
+	got := Policy{Omit: []string{"orders/legacy/", "./src/gen", "ordres", "/"}}.OmitFrom(scan)
+	var ids []string
+	for _, m := range got.Modules {
+		ids = append(ids, m.ID)
+	}
+	if !reflect.DeepEqual(ids, []string{"src/index.ts", "src/orders/legacyish.ts"}) {
+		t.Fatalf("kept %v", ids)
+	}
+	want := []string{"from the scanner", "Left out 3 modules named under omit in .umlv/policy.toml.",
+		`Nothing matches "ordres" under omit in .umlv/policy.toml.`}
+	if !reflect.DeepEqual(got.Notes, want) {
+		t.Fatalf("notes = %q", got.Notes)
+	}
+	if len(scan.Notes) != 1 || len(scan.Modules) != 5 {
+		t.Fatal("OmitFrom changed the scan it was given")
+	}
+}
+
+func TestOmitFromWithNothingToOmitKeepsEverything(t *testing.T) {
+	scan := facts.Scan{Modules: []facts.Module{{ID: "a", Path: "a"}, {ID: "b", Path: "b"}}}
+	if got := (Policy{}).OmitFrom(scan); !reflect.DeepEqual(got, scan) {
+		t.Fatalf("got %+v", got)
+	}
+	got := Policy{Omit: []string{"a"}}.OmitFrom(scan)
+	if len(got.Modules) != 1 || got.Notes[0] != "Left out 1 module named under omit in .umlv/policy.toml." {
+		t.Fatalf("got %+v", got)
 	}
 }

@@ -40,6 +40,15 @@ func TestSourceIsTheFileElseTheDirectory(t *testing.T) {
 	}
 }
 
+func TestPlaceIsThePathElseTheNameForTheRootModule(t *testing.T) {
+	if got := (Module{Path: "cart/basket", Name: "basket"}).Place(); got != "cart/basket" {
+		t.Fatalf("got %q", got)
+	}
+	if got := (Module{Name: "shop"}).Place(); got != "shop" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestMissingToolErrorNamesTheTool(t *testing.T) {
 	if got := (&MissingToolError{Tool: "node"}).Error(); got != "node is not installed or not on PATH" {
 		t.Fatalf("got %q", got)

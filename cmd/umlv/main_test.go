@@ -127,6 +127,20 @@ func TestKeepsAnEditedPolicy(t *testing.T) {
 	}
 }
 
+func TestOmitLeavesModulesOffThePageAndSaysSo(t *testing.T) {
+	dir := copyShop(t)
+	os.MkdirAll(filepath.Join(dir, ".umlv"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".umlv/policy.toml"), []byte("omit = [\"internal\"]\n"), 0o644)
+	code, _, errOut, _ := umlv(t, "--no-open", dir)
+	if code != 0 || !strings.Contains(errOut, "umlv: note: Left out 1 module named under omit") {
+		t.Fatalf("exit %d: %s", code, errOut)
+	}
+	p := readPage(t, dir)
+	if len(p.Modules) != 1 || p.Modules[0].ID != "github.com/acme/shop" || len(p.Modules[0].Uses) != 0 {
+		t.Fatalf("modules = %+v", p.Modules)
+	}
+}
+
 func TestStopsWhenNoLanguageIsRecognised(t *testing.T) {
 	code, _, errOut, _ := umlv(t, "--no-open", t.TempDir())
 	if code != 1 || !strings.Contains(errOut, "--lang") {
